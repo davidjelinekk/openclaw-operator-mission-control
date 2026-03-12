@@ -1,5 +1,8 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api, queryClient } from '@/lib/api'
+import type { Approval } from './approvals'
+
+export type { Approval }
 
 export interface Board {
   id: string
@@ -46,11 +49,6 @@ export interface Task {
   tags?: Array<{ id: string; name: string; color: string }>
 }
 
-export interface Approval {
-  id: string
-  taskId: string
-  status: 'pending' | 'approved' | 'rejected'
-}
 
 export function useBoards() {
   return useQuery<Board[]>({
