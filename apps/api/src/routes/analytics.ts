@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
-import { tokenEvents } from '../db/schema.js'
+import { tokenEvents, tasks } from '../db/schema.js'
 import { eq, gte, lte, and, sql, desc } from 'drizzle-orm'
 import { analyticsIngestWorker } from '../workers/analytics.js'
 
@@ -91,6 +91,49 @@ analyticsRouter.get('/timeseries', async (c) => {
     .orderBy(sql`1`)
 
   return c.json(result)
+})
+
+analyticsRouter.get('/task-velocity', async (c) => {
+  const start = c.req.query('start')
+  const end = c.req.query('end')
+  const boardId = c.req.query('boardId')
+
+  const dateExpr = sql`COALESCE(${tasks.completedAt}, ${tasks.updatedAt})`
+  let where = sql`${tasks.status} = 'done'`
+  if (start) where = sql`${where} AND ${dateExpr} >= ${start}::timestamptz`
+  if (end) where = sql`${where} AND ${dateExpr} <= ${end}::timestamptz`
+  if (boardId) where = sql`${where} AND ${tasks.boardId} = ${boardId}::uuid`
+
+  const result = await db.execute(
+    sql`SELECT DATE_TRUNC('day', COALESCE(${tasks.completedAt}, ${tasks.updatedAt}))::text AS date, COUNT(*)::int AS count
+        FROM ${tasks}
+        WHERE ${where}
+        GROUP BY 1
+        ORDER BY 1 ASC`
+  )
+
+  return c.json([...result])
+})
+
+analyticsRouter.get('/task-outcomes', async (c) => {
+  const start = c.req.query('start')
+  const end = c.req.query('end')
+  const boardId = c.req.query('boardId')
+
+  let where = sql`1=1`
+  if (start) where = sql`${where} AND ${tasks.createdAt} >= ${start}::timestamptz`
+  if (end) where = sql`${where} AND ${tasks.createdAt} <= ${end}::timestamptz`
+  if (boardId) where = sql`${where} AND ${tasks.boardId} = ${boardId}::uuid`
+
+  const result = await db.execute(
+    sql`SELECT COALESCE(${tasks.outcome}, 'none') AS outcome, COUNT(*)::int AS count
+        FROM ${tasks}
+        WHERE ${where}
+        GROUP BY ${tasks.outcome}
+        ORDER BY count DESC`
+  )
+
+  return c.json([...result])
 })
 
 analyticsRouter.post('/ingest', async (c) => {

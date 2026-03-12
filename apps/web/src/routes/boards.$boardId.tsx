@@ -13,7 +13,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { AlertTriangle, CheckCircle2, Clock, Plus, Settings, X, ChevronRight, MessageSquare, ShieldCheck } from 'lucide-react'
 import { useBoard } from '@/hooks/useBoard'
-import { useCreateTask, useUpdateTask, useDeleteTask, useAddDep, useRemoveDep } from '@/hooks/api/tasks'
+import { useCreateTask, useUpdateTask, useDeleteTask, useAddDep, useRemoveDep, useTaskNotes, useCreateTaskNote } from '@/hooks/api/tasks'
 import { useAgents } from '@/hooks/api/agents'
 import { useQuery } from '@tanstack/react-query'
 import { api, queryClient } from '@/lib/api'
@@ -195,6 +195,7 @@ function DetailTab({ task, agents, onClose }: { task: Task; agents: ReturnType<t
   const [priority, setPriority] = useState(task.priority)
   const [assignedAgentId, setAssignedAgentId] = useState(task.assignedAgentId ?? '')
   const [dueDate, setDueDate] = useState(task.dueDate ? task.dueDate.slice(0, 10) : '')
+  const [outcome, setOutcome] = useState<Task['outcome']>(task.outcome ?? null)
 
   async function handleSave() {
     await updateTask.mutateAsync({
@@ -204,6 +205,7 @@ function DetailTab({ task, agents, onClose }: { task: Task; agents: ReturnType<t
       priority,
       assignedAgentId: assignedAgentId || undefined,
       dueDate: dueDate || undefined,
+      outcome: outcome ?? undefined,
     })
   }
 
@@ -270,6 +272,37 @@ function DetailTab({ task, agents, onClose }: { task: Task; agents: ReturnType<t
           </select>
         </div>
       )}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium uppercase tracking-wider text-[#8b949e] mb-1">Outcome</label>
+          <select
+            value={outcome ?? ''}
+            onChange={(e) => setOutcome((e.target.value as Task['outcome']) || null)}
+            className={cn(
+              'w-full bg-[#0d1117] border border-[#30363d] px-3 py-2 text-sm focus:outline-none focus:border-[#58a6ff]',
+              outcome === 'success' && 'text-[#3fb950]',
+              outcome === 'failed' && 'text-[#f85149]',
+              outcome === 'partial' && 'text-[#d29922]',
+              outcome === 'abandoned' && 'text-[#6e7681]',
+              !outcome && 'text-[#e6edf3]',
+            )}
+          >
+            <option value="">None</option>
+            <option value="success">Success</option>
+            <option value="failed">Failed</option>
+            <option value="partial">Partial</option>
+            <option value="abandoned">Abandoned</option>
+          </select>
+        </div>
+        {task.completedAt && (
+          <div>
+            <label className="block text-xs font-medium uppercase tracking-wider text-[#8b949e] mb-1">Completed</label>
+            <p className="px-3 py-2 text-sm font-mono text-[#8b949e] bg-[#0d1117] border border-[#30363d]">
+              {new Date(task.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          </div>
+        )}
+      </div>
       <div className="flex items-center justify-between pt-2">
         <button
           onClick={handleDelete}
@@ -441,6 +474,60 @@ function ActivityTab({ task }: { task: Task }) {
   )
 }
 
+// ─── Notes tab ───────────────────────────────────────────────────────────────
+
+function NotesTab({ task }: { task: Task }) {
+  const { data: notes, isLoading } = useTaskNotes(task.id)
+  const createNote = useCreateTaskNote(task.id)
+  const [message, setMessage] = useState('')
+
+  async function submitNote(e: React.FormEvent) {
+    e.preventDefault()
+    if (!message.trim()) return
+    await createNote.mutateAsync({ message: message.trim() })
+    setMessage('')
+  }
+
+  return (
+    <div className="flex flex-col h-full gap-4">
+      {isLoading && <p className="text-xs text-[#6e7681]">loading…</p>}
+      {!isLoading && (notes ?? []).length === 0 && (
+        <p className="text-xs font-mono text-[#6e7681]">No notes yet</p>
+      )}
+      <div className="space-y-3 flex-1">
+        {(notes ?? []).map((note) => (
+          <div key={note.id} className="flex gap-2">
+            <div className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[#d29922] mt-1.5" />
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                {note.agentId && <span className="text-[10px] font-mono text-[#6e7681]">{note.agentId}</span>}
+                <span className="text-[10px] font-mono text-[#6e7681]">{relativeTime(note.createdAt)}</span>
+              </div>
+              <p className="text-sm text-[#e6edf3]">{note.message}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={submitNote} className="flex gap-2 pt-2 border-t border-[#30363d]">
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Add note…"
+          rows={2}
+          className="flex-1 bg-[#0d1117] border border-[#30363d] px-3 py-2 text-sm font-mono text-[#e6edf3] placeholder-[#6e7681] focus:outline-none focus:border-[#58a6ff] resize-none"
+        />
+        <button
+          type="submit"
+          disabled={!message.trim() || createNote.isPending}
+          className="px-3 py-2 text-xs font-mono text-white bg-[#1f6feb] border border-[#388bfd] hover:bg-[#388bfd] disabled:opacity-50 transition-colors self-end"
+        >
+          Save
+        </button>
+      </form>
+    </div>
+  )
+}
+
 // ─── Tags tab ────────────────────────────────────────────────────────────────
 
 function TagsTab({ task }: { task: Task }) {
@@ -519,7 +606,7 @@ function TaskDetailSheet({
   snapshot: BoardSnapshot
   onClose: () => void
 }) {
-  const [tab, setTab] = useState<'detail' | 'deps' | 'activity' | 'tags'>('detail')
+  const [tab, setTab] = useState<'detail' | 'deps' | 'activity' | 'tags' | 'notes'>('detail')
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
@@ -533,7 +620,7 @@ function TaskDetailSheet({
         </div>
 
         <div className="flex border-b border-[#30363d]">
-          {(['detail', 'deps', 'activity', 'tags'] as const).map((t) => (
+          {(['detail', 'deps', 'activity', 'tags', 'notes'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -554,6 +641,7 @@ function TaskDetailSheet({
           {tab === 'deps' && <DepsTab task={task} snapshot={snapshot} />}
           {tab === 'activity' && <ActivityTab task={task} />}
           {tab === 'tags' && <TagsTab task={task} />}
+          {tab === 'notes' && <NotesTab task={task} />}
         </div>
       </div>
     </div>

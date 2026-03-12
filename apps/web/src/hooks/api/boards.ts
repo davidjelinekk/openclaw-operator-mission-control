@@ -39,6 +39,8 @@ export interface Task {
   dueDate?: string
   depCount?: number
   pendingApproval?: boolean
+  outcome?: 'success' | 'failed' | 'partial' | 'abandoned' | null
+  completedAt?: string | null
   createdAt?: string
   updatedAt?: string
   tags?: Array<{ id: string; name: string; color: string }>

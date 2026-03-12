@@ -9,6 +9,13 @@ interface KanbanCardProps {
   onClick?: () => void
 }
 
+const outcomeBadge: Record<NonNullable<Task['outcome']>, { label: string; className: string }> = {
+  success:   { label: 'SUCCESS',   className: 'text-[#3fb950] border-[#238636]' },
+  failed:    { label: 'FAILED',    className: 'text-[#f85149] border-[#da3633]' },
+  partial:   { label: 'PARTIAL',   className: 'text-[#d29922] border-[#9e6a03]' },
+  abandoned: { label: 'ABANDONED', className: 'text-[#6e7681] border-[#30363d]' },
+}
+
 const priorityBadge: Record<Task['priority'], { label: string; className: string; borderLeft: string }> = {
   high: { label: 'HIGH', className: 'text-[#f85149] border border-[#6e0000]', borderLeft: 'border-l-2 border-l-[#f85149]' },
   medium: { label: 'MED', className: 'text-[#d29922] border border-[#9e6a03]', borderLeft: 'border-l-2 border-l-[#d29922]' },
@@ -31,10 +38,16 @@ function formatRelativeDate(dateStr: string): { label: string; overdue: boolean 
   return { label: `in ${diffDays}d`, overdue: false }
 }
 
+function formatCompletedAt(dateStr: string): string {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export function KanbanCard({ task, agents, isDragging, onClick }: KanbanCardProps) {
   const priority = priorityBadge[task.priority]
   const assignedAgent = task.assignedAgentId ? agents?.find((a) => a.id === task.assignedAgentId) : undefined
   const dueDateInfo = task.dueDate ? formatRelativeDate(task.dueDate) : null
+  const outcome = task.outcome ? outcomeBadge[task.outcome] : null
 
   return (
     <div
@@ -97,6 +110,23 @@ export function KanbanCard({ task, agents, isDragging, onClick }: KanbanCardProp
           {dueDateInfo && (
             <span className={cn('text-[11px] font-mono font-medium flex-shrink-0', dueDateInfo.overdue ? 'text-[#f85149]' : 'text-[#6e7681]')}>
               {dueDateInfo.label}
+            </span>
+          )}
+        </div>
+      )}
+
+      {(outcome || (task.status === 'done' && task.completedAt)) && (
+        <div className="flex items-center justify-between mt-2 gap-2">
+          {outcome ? (
+            <span className={cn('text-[10px] font-mono font-semibold px-1.5 py-0.5 border', outcome.className)}>
+              {outcome.label}
+            </span>
+          ) : (
+            <span />
+          )}
+          {task.status === 'done' && task.completedAt && (
+            <span className="text-[10px] font-mono text-[#6e7681] flex-shrink-0">
+              {formatCompletedAt(task.completedAt)}
             </span>
           )}
         </div>

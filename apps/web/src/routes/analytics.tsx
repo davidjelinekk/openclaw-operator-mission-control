@@ -12,6 +12,8 @@ import {
   Pie,
   Cell,
   Legend,
+  BarChart,
+  Bar,
 } from 'recharts'
 import {
   useAnalyticsSummary,
@@ -19,6 +21,8 @@ import {
   useAnalyticsByAgent,
   useAnalyticsByModel,
   useAnalyticsByProject,
+  useTaskVelocity,
+  useTaskOutcomes,
 } from '@/hooks/api/analytics'
 
 export const Route = createFileRoute('/analytics')({
@@ -61,6 +65,14 @@ const tooltipStyle = {
 
 type SortKey = 'totalCostUsd' | 'inputTokens' | 'outputTokens' | 'cacheHitPct' | 'turnCount'
 
+const OUTCOME_COLORS: Record<string, string> = {
+  success: '#3fb950',
+  failed: '#f85149',
+  partial: '#d29922',
+  abandoned: '#6e7681',
+  none: '#8b949e',
+}
+
 function AnalyticsPage() {
   const [range, setRange] = useState<Range>('7d')
   const [agentSort, setAgentSort] = useState<SortKey>('totalCostUsd')
@@ -73,6 +85,8 @@ function AnalyticsPage() {
   const byAgent = useAnalyticsByAgent(start, end)
   const byModel = useAnalyticsByModel(start, end)
   const byProject = useAnalyticsByProject(start, end)
+  const taskVelocity = useTaskVelocity(start, end)
+  const taskOutcomes = useTaskOutcomes(start, end)
 
   const agentIds = useMemo(() => {
     const ids = new Set<string>()
@@ -118,6 +132,23 @@ function AnalyticsPage() {
   const sortedProjects = useMemo(() => {
     return [...(byProject.data ?? [])].sort((a, b) => parseFloat(b.costUsd) - parseFloat(a.costUsd))
   }, [byProject.data])
+
+  const velocityData = useMemo(() => {
+    return (taskVelocity.data ?? []).map((d) => ({
+      date: (() => {
+        const dt = new Date(d.date)
+        return `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`
+      })(),
+      count: d.count,
+    }))
+  }, [taskVelocity.data])
+
+  const outcomesData = useMemo(() => {
+    return (taskOutcomes.data ?? []).map((d) => ({
+      outcome: d.outcome ?? 'none',
+      count: d.count,
+    }))
+  }, [taskOutcomes.data])
 
   function toggleSort(key: SortKey) {
     if (agentSort === key) {
@@ -210,7 +241,7 @@ function AnalyticsPage() {
               tickLine={false}
               tickFormatter={(v: number) => `$${v.toFixed(3)}`}
             />
-            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(4)}`, '']} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`$${(v as number).toFixed(4)}`, '']} />
             {agentIds.map((id, i) => (
               <Area
                 key={id}
@@ -293,7 +324,7 @@ function AnalyticsPage() {
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`$${v.toFixed(4)}`, 'Cost']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`$${(v as number).toFixed(4)}`, 'Cost']} />
               <Legend wrapperStyle={{ fontSize: '12px', color: '#8b949e' }} />
             </PieChart>
           </ResponsiveContainer>
@@ -330,6 +361,48 @@ function AnalyticsPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Task Velocity */}
+      <div className="border border-[#30363d] bg-[#161b22] p-5">
+        <p className="text-xs font-medium uppercase tracking-wider text-[#8b949e] mb-4">Task Velocity (Completed/Day)</p>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={velocityData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+            <XAxis dataKey="date" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis
+              tick={{ fill: '#8b949e', fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v as number, 'Tasks']} />
+            <Bar dataKey="count" fill="#3fb950" radius={[2, 2, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Task Outcomes */}
+      <div className="border border-[#30363d] bg-[#161b22] p-5">
+        <p className="text-xs font-medium uppercase tracking-wider text-[#8b949e] mb-4">Task Outcomes</p>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={outcomesData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+            <XAxis dataKey="outcome" tick={{ fill: '#8b949e', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis
+              tick={{ fill: '#8b949e', fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v as number, 'Tasks']} />
+            <Bar dataKey="count" radius={[2, 2, 0, 0]}>
+              {outcomesData.map((entry, i) => (
+                <Cell key={i} fill={OUTCOME_COLORS[entry.outcome] ?? '#8b949e'} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   )

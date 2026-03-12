@@ -12,6 +12,7 @@ import {
   Activity,
   Layers,
   Tag,
+  Inbox,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/ui'
@@ -45,6 +46,7 @@ const NAV_GROUPS: NavGroup[] = [
     short: 'ag',
     items: [
       { label: 'agents',    to: '/agents',    icon: Bot },
+      { label: 'workload',  to: '/workload',  icon: Inbox },
       { label: 'flow',      to: '/flow',      icon: GitBranch },
       { label: 'skills',    to: '/skills',    icon: Wrench },
     ],

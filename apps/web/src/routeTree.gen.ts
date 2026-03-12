@@ -20,6 +20,7 @@ import { Route as CronRouteImport } from './routes/cron'
 import { Route as BoardsRouteImport } from './routes/boards'
 import { Route as BoardGroupsRouteImport } from './routes/board-groups'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as WorkloadRouteImport } from './routes/workload'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
@@ -85,6 +86,11 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkloadRoute = WorkloadRouteImport.update({
+  id: '/workload',
+  path: '/workload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentsRoute = AgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
   '/tags': typeof TagsRoute
+  '/workload': typeof WorkloadRoute
   '/boards/$boardId': typeof BoardsBoardIdRoute
   '/people/$personId': typeof PeoplePersonIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
   '/tags': typeof TagsRoute
+  '/workload': typeof WorkloadRoute
   '/boards/$boardId': typeof BoardsBoardIdRoute
   '/people/$personId': typeof PeoplePersonIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
   '/tags': typeof TagsRoute
+  '/workload': typeof WorkloadRoute
   '/boards/$boardId': typeof BoardsBoardIdRoute
   '/people/$personId': typeof PeoplePersonIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/skills'
     | '/tags'
+    | '/workload'
     | '/boards/$boardId'
     | '/people/$personId'
     | '/projects/$projectId'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/skills'
     | '/tags'
+    | '/workload'
     | '/boards/$boardId'
     | '/people/$personId'
     | '/projects/$projectId'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/skills'
     | '/tags'
+    | '/workload'
     | '/boards/$boardId'
     | '/people/$personId'
     | '/projects/$projectId'
@@ -276,6 +288,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SkillsRoute: typeof SkillsRoute
   TagsRoute: typeof TagsRoute
+  WorkloadRoute: typeof WorkloadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -362,6 +375,13 @@ declare module '@tanstack/react-router' {
       path: '/agents'
       fullPath: '/agents'
       preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workload': {
+      id: '/workload'
+      path: '/workload'
+      fullPath: '/workload'
+      preLoaderRoute: typeof WorkloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/activity': {
@@ -478,6 +498,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SkillsRoute: SkillsRoute,
   TagsRoute: TagsRoute,
+  WorkloadRoute: WorkloadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

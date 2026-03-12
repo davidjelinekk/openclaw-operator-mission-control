@@ -56,6 +56,22 @@ tasksRouter.get('/queue', async (c) => {
   return c.json(result)
 })
 
+tasksRouter.post('/batch', zValidator('json', z.object({ tasks: z.array(CreateTaskSchema).min(1).max(100) })), async (c) => {
+  const { tasks: taskList } = c.req.valid('json')
+  const rows = taskList.map((t) => ({ ...t, dueAt: t.dueAt ? new Date(t.dueAt) : undefined }))
+  const created = await db.insert(tasks).values(rows).returning()
+  const boardIds = [...new Set(created.map((t) => t.boardId))]
+  await Promise.all(
+    boardIds.map((boardId) =>
+      redis.publish(
+        `board:${boardId}`,
+        JSON.stringify({ type: 'task.batch_created', tasks: created.filter((t) => t.boardId === boardId) }),
+      ),
+    ),
+  )
+  return c.json(created, 201)
+})
+
 tasksRouter.get('/:id', async (c) => {
   const id = c.req.param('id')
   const [task] = await db.select().from(tasks).where(eq(tasks.id, id))

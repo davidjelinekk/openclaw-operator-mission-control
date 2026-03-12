@@ -82,3 +82,35 @@ export function useAnalyticsByProject(start: string, end: string) {
     queryFn: () => api.get(`api/analytics/by-project?${buildParams(start, end)}`).json<AnalyticsByProject[]>(),
   })
 }
+
+export interface TaskVelocityItem {
+  date: string
+  count: number
+}
+
+export interface TaskOutcomeItem {
+  outcome: string | null
+  count: number
+}
+
+function buildParamsWithBoard(start: string, end: string, boardId?: string) {
+  const p = new URLSearchParams({ start, end })
+  if (boardId) p.set('boardId', boardId)
+  return p.toString()
+}
+
+export function useTaskVelocity(start: string, end: string, boardId?: string) {
+  return useQuery<TaskVelocityItem[]>({
+    queryKey: ['analytics', 'task-velocity', start, end, boardId],
+    queryFn: () =>
+      api.get(`api/analytics/task-velocity?${buildParamsWithBoard(start, end, boardId)}`).json<TaskVelocityItem[]>(),
+  })
+}
+
+export function useTaskOutcomes(start: string, end: string, boardId?: string) {
+  return useQuery<TaskOutcomeItem[]>({
+    queryKey: ['analytics', 'task-outcomes', start, end, boardId],
+    queryFn: () =>
+      api.get(`api/analytics/task-outcomes?${buildParamsWithBoard(start, end, boardId)}`).json<TaskOutcomeItem[]>(),
+  })
+}

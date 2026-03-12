@@ -3,7 +3,8 @@
     "allow": [
       "Bash(gh api:*)",
       "Bash(for f:*)",
-      "Bash(cd /Users/jerrymefsil/oc-operator/apps/web && pnpm typecheck 2>&1 | tail -30)"
+      "Bash(cd /Users/jerrymefsil/oc-operator/apps/web && pnpm typecheck 2>&1 | tail -30)",
+      "Bash(cd /Users/jerrymefsil/oc-operator/apps/api && npm run typecheck 2>&1 && echo \"API OK\")"
     ]
   }
 }
