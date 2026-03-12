@@ -1,0 +1,8 @@
+
+> @oc-operator/api@0.0.1 build /Users/jerrymefsil/oc-operator/apps/api
+> tsc -p tsconfig.json
+
+
+> @oc-operator/api@0.0.1 postbuild /Users/jerrymefsil/oc-operator/apps/api
+> cp -r ../web/dist ./web-dist || true
+

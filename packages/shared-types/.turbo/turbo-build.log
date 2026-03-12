@@ -1,0 +1,4 @@
+
+> @oc-operator/shared-types@0.0.1 build /Users/jerrymefsil/oc-operator/packages/shared-types
+> tsc -p tsconfig.json
+

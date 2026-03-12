@@ -1,0 +1,202 @@
+import { Hono } from 'hono'
+import { zValidator } from '@hono/zod-validator'
+import { db } from '../db/client.js'
+import { tasks, taskDependencies, approvals, boards, activityEvents } from '../db/schema.js'
+import { eq, and, desc, asc, sql } from 'drizzle-orm'
+import { CreateTaskSchema, UpdateTaskSchema } from '@oc-operator/shared-types'
+import { redis } from '../lib/redis.js'
+import { z } from 'zod'
+
+const UpdateTaskWithOutcomeSchema = UpdateTaskSchema.extend({
+  outcome: z.enum(['success', 'failed', 'partial', 'abandoned']).optional(),
+})
+
+export const tasksRouter = new Hono()
+
+tasksRouter.get('/', async (c) => {
+  const boardId = c.req.query('boardId')
+  const projectId = c.req.query('projectId')
+  let q = db.select().from(tasks).$dynamic()
+  if (boardId) q = q.where(eq(tasks.boardId, boardId))
+  if (projectId) q = q.where(eq(tasks.projectId, projectId))
+  const result = await q.orderBy(desc(tasks.createdAt))
+  return c.json(result)
+})
+
+tasksRouter.post('/', zValidator('json', CreateTaskSchema), async (c) => {
+  const data = c.req.valid('json')
+  const [task] = await db.insert(tasks).values({
+    ...data,
+    dueAt: data.dueAt ? new Date(data.dueAt) : undefined,
+  }).returning()
+  await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.created', task }))
+  return c.json(task, 201)
+})
+
+// Task queue — prioritized inbox tasks for agents
+tasksRouter.get('/queue', async (c) => {
+  const boardId = c.req.query('boardId')
+  const agentId = c.req.query('agentId')
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10) || 10, 100)
+
+  const conditions = [eq(tasks.status, 'inbox')]
+  if (boardId) conditions.push(eq(tasks.boardId, boardId))
+  if (agentId) conditions.push(eq(tasks.assignedAgentId, agentId))
+
+  const result = await db
+    .select()
+    .from(tasks)
+    .where(and(...conditions))
+    .orderBy(
+      sql`CASE WHEN ${tasks.priority} = 'high' THEN 2 WHEN ${tasks.priority} = 'medium' THEN 1 ELSE 0 END DESC`,
+      asc(tasks.createdAt),
+    )
+    .limit(limit)
+
+  return c.json(result)
+})
+
+tasksRouter.get('/:id', async (c) => {
+  const id = c.req.param('id')
+  const [task] = await db.select().from(tasks).where(eq(tasks.id, id))
+  if (!task) return c.json({ error: 'Not found' }, 404)
+  return c.json(task)
+})
+
+tasksRouter.patch('/:id', zValidator('json', UpdateTaskWithOutcomeSchema), async (c) => {
+  const id = c.req.param('id')
+  const data = c.req.valid('json')
+
+  const [existingTask] = await db.select().from(tasks).where(eq(tasks.id, id))
+  if (!existingTask) return c.json({ error: 'Not found' }, 404)
+
+  const statusChanging = data.status !== undefined && data.status !== existingTask.status
+
+  if (statusChanging) {
+    const [board] = await db.select().from(boards).where(eq(boards.id, existingTask.boardId))
+
+    if (board) {
+      // 1. blockStatusChangesWithPendingApproval
+      if (board.blockStatusChangesWithPendingApproval) {
+        const [pendingApproval] = await db.select().from(approvals)
+          .where(and(eq(approvals.taskId, id), eq(approvals.status, 'pending')))
+        if (pendingApproval) {
+          return c.json({ error: 'Status change blocked: this task has a pending approval.' }, 409)
+        }
+      }
+
+      // 2. requireReviewBeforeDone
+      if (board.requireReviewBeforeDone && data.status === 'done' && existingTask.status !== 'review') {
+        return c.json({ error: 'Task must pass through Review before being marked Done.' }, 409)
+      }
+
+      // 3. requireApprovalForDone
+      if (board.requireApprovalForDone && data.status === 'done') {
+        const [approvedApproval] = await db.select().from(approvals)
+          .where(and(eq(approvals.taskId, id), eq(approvals.status, 'approved')))
+        if (!approvedApproval) {
+          return c.json({ error: 'An approved approval is required before marking Done.' }, 409)
+        }
+      }
+
+      // 4. onlyLeadCanChangeStatus
+      if (board.onlyLeadCanChangeStatus) {
+        const agentId = c.req.header('x-agent-id')
+        if (!agentId || agentId !== board.gatewayAgentId) {
+          return c.json({ error: 'Only the lead agent can change task status.' }, 403)
+        }
+      }
+    }
+  }
+
+  const updates: Record<string, unknown> = {
+    ...data,
+    updatedAt: new Date(),
+    dueAt: data.dueAt != null ? new Date(data.dueAt) : data.dueAt,
+  }
+  if (data.status === 'in_progress') updates['inProgressAt'] = new Date()
+  if (data.status === 'done' && existingTask.status !== 'done') updates['completedAt'] = new Date()
+  const [task] = await db.update(tasks).set(updates).where(eq(tasks.id, id)).returning()
+  if (!task) return c.json({ error: 'Not found' }, 404)
+  await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.updated', task }))
+  return c.json(task)
+})
+
+// Atomic claim — prevents two agents from claiming the same task
+tasksRouter.post('/:id/claim', zValidator('json', z.object({ agentId: z.string().min(1) })), async (c) => {
+  const id = c.req.param('id')
+  const { agentId } = c.req.valid('json')
+
+  const [task] = await db
+    .update(tasks)
+    .set({ status: 'in_progress', assignedAgentId: agentId, inProgressAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(tasks.id, id), eq(tasks.status, 'inbox')))
+    .returning()
+
+  if (!task) return c.json({ error: 'already claimed' }, 409)
+  await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.updated', task }))
+  return c.json(task)
+})
+
+// Task notes — stored as activityEvents with eventType 'task.note'
+tasksRouter.get('/:id/notes', async (c) => {
+  const taskId = c.req.param('id')
+  const notes = await db
+    .select()
+    .from(activityEvents)
+    .where(and(eq(activityEvents.taskId, taskId), eq(activityEvents.eventType, 'task.note')))
+    .orderBy(desc(activityEvents.createdAt))
+  return c.json(notes)
+})
+
+tasksRouter.post(
+  '/:id/notes',
+  zValidator('json', z.object({ message: z.string().min(1), agentId: z.string().optional(), metadata: z.record(z.unknown()).optional() })),
+  async (c) => {
+    const taskId = c.req.param('id')
+    const { message, agentId, metadata } = c.req.valid('json')
+
+    const [task] = await db.select({ boardId: tasks.boardId }).from(tasks).where(eq(tasks.id, taskId))
+    if (!task) return c.json({ error: 'Not found' }, 404)
+
+    const [note] = await db
+      .insert(activityEvents)
+      .values({ taskId, boardId: task.boardId, agentId, eventType: 'task.note', message, metadata })
+      .returning()
+    return c.json(note, 201)
+  },
+)
+
+tasksRouter.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+  const [task] = await db.select().from(tasks).where(eq(tasks.id, id))
+  if (!task) return c.json({ error: 'Not found' }, 404)
+  await db.delete(tasks).where(eq(tasks.id, id))
+  await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.deleted', taskId: id }))
+  return c.json({ ok: true })
+})
+
+// Dependencies
+tasksRouter.get('/:id/deps', async (c) => {
+  const id = c.req.param('id')
+  const deps = await db.select().from(taskDependencies).where(eq(taskDependencies.taskId, id))
+  const blockedBy = await db.select().from(taskDependencies).where(eq(taskDependencies.dependsOnTaskId, id))
+  return c.json({ blockedBy: deps, blocking: blockedBy })
+})
+
+tasksRouter.post('/:id/deps', zValidator('json', z.object({ dependsOnTaskId: z.string().uuid() })), async (c) => {
+  const taskId = c.req.param('id')
+  const { dependsOnTaskId } = c.req.valid('json')
+  if (taskId === dependsOnTaskId) return c.json({ error: 'Self-dependency not allowed' }, 400)
+  await db.insert(taskDependencies).values({ taskId, dependsOnTaskId }).onConflictDoNothing()
+  return c.json({ ok: true }, 201)
+})
+
+tasksRouter.delete('/:id/deps/:depId', async (c) => {
+  const taskId = c.req.param('id')
+  const depId = c.req.param('depId')
+  await db.delete(taskDependencies).where(and(eq(taskDependencies.taskId, taskId), eq(taskDependencies.dependsOnTaskId, depId)))
+  return c.json({ ok: true })
+})
+
+export default tasksRouter
