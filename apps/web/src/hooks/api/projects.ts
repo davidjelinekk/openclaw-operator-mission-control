@@ -26,6 +26,7 @@ export interface Task {
   status: 'inbox' | 'in_progress' | 'review' | 'done'
   priority: 'low' | 'medium' | 'high'
   assignedAgentId?: string
+  boardId?: string
 }
 
 export interface ProjectDetail {
@@ -76,6 +77,9 @@ export function useUpdateProject(id: string) {
 export function useKickoffProject(id: string) {
   return useMutation({
     mutationFn: () => api.post(`api/projects/${id}/kickoff`).json<{ ok: boolean }>(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', id] })
+    },
   })
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import ReactFlow, {
   Background,
@@ -10,19 +10,23 @@ import ReactFlow, {
 import type { Node, Edge } from 'reactflow'
 import 'reactflow/dist/style.css'
 import dagre from '@dagrejs/dagre'
-import { ArrowLeft, Play, Loader2 } from 'lucide-react'
+import { ArrowLeft, Play, Loader2, Plus, X, Search } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { AgentChip } from '@/components/atoms/AgentChip'
 import {
   useProject,
   useUpdateProject,
   useUpdateProjectTask,
   useKickoffProject,
+  useAddProjectTask,
+  useRemoveProjectTask,
   type Project,
   type ProjectTask,
   type Task,
 } from '@/hooks/api/projects'
 import { useAgents } from '@/hooks/api/agents'
+import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/projects/$projectId')({
   component: ProjectDetailPage,
@@ -57,6 +61,8 @@ const PROJECT_STATUS_STYLES: Record<Project['status'], string> = {
   paused: 'text-[#d29922] border-[#9e6a03]',
   complete: 'text-[#3fb950] border-[#238636]',
 }
+
+interface AllTasksPickerTask { id: string; title: string; boardId: string; status: string }
 
 // --- dagre layout ---
 
@@ -303,6 +309,18 @@ function ProjectDetailPage() {
   const updateProject = useUpdateProject(projectId)
   const updateTask = useUpdateProjectTask(projectId)
   const kickoff = useKickoffProject(projectId)
+  const addTask = useAddProjectTask(projectId)
+  const removeTask = useRemoveProjectTask(projectId)
+
+  const [showPicker, setShowPicker] = useState(false)
+  const [taskSearch, setTaskSearch] = useState('')
+
+  const { data: allTasks = [] } = useQuery<AllTasksPickerTask[]>({
+    queryKey: ['tasks', 'all-for-picker'],
+    queryFn: () => api.get('api/tasks', { searchParams: { limit: '200' } }).json<AllTasksPickerTask[]>(),
+    enabled: showPicker,
+    staleTime: 30_000,
+  })
 
   const agentMap = useMemo(
     () => new Map(agents.map((a) => [a.id, { name: a.name, emoji: a.emoji ?? undefined }])),
@@ -335,6 +353,12 @@ function ProjectDetailPage() {
 
   const { project, tasks } = data
   const orchestrator = project.orchestratorAgentId ? agentMap.get(project.orchestratorAgentId) : undefined
+
+  const existingTaskIds = new Set(tasks.map(({ pt }) => pt.taskId))
+  const pickerItems = allTasks.filter(
+    (t) => !existingTaskIds.has(t.id) &&
+      t.title.toLowerCase().includes(taskSearch.toLowerCase())
+  )
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -433,11 +457,31 @@ function ProjectDetailPage() {
           </div>
 
           {/* Task list */}
-          {tasks.length > 0 && (
-            <div className="border border-[#30363d] bg-[#161b22] overflow-hidden">
-              <div className="border-b border-[#30363d] px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wider text-[#8b949e]">Tasks ({tasks.length})</p>
+          <div className="border border-[#30363d] bg-[#161b22] overflow-hidden">
+            <div className="border-b border-[#30363d] px-4 py-3 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wider text-[#8b949e]">Tasks ({tasks.length})</p>
+              <button
+                onClick={() => setShowPicker((v) => !v)}
+                className="flex items-center justify-center h-5 w-5 border border-[#30363d] text-[#8b949e] hover:text-[#e6edf3] hover:border-[#58a6ff] transition-colors"
+                title="Add task"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {tasks.length === 0 && !showPicker && (
+              <div className="px-4 py-6 flex flex-col items-center gap-2 text-[#6e7681] text-sm">
+                <span>No tasks yet.</span>
+                <button
+                  onClick={() => setShowPicker(true)}
+                  className="text-xs text-[#58a6ff] hover:underline"
+                >
+                  + add tasks
+                </button>
               </div>
+            )}
+
+            {tasks.length > 0 && (
               <div className="flex flex-col divide-y divide-[#21262d]">
                 {[...tasks]
                   .sort((a, b) => a.pt.position - b.pt.position)
@@ -445,13 +489,20 @@ function ProjectDetailPage() {
                     <div key={pt.taskId} className="px-4 py-3 flex flex-col gap-1.5">
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-sm text-[#e6edf3] leading-snug">{task?.title ?? pt.taskId}</span>
-                        {task && (
-                          <span
-                            className={`inline-flex flex-shrink-0 items-center px-1.5 py-0.5 text-xs font-mono border ${STATUS_BADGE[task.status]}`}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {task && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 text-xs font-mono border ${STATUS_BADGE[task.status]}`}>
+                              {TASK_STATUS_LABELS[task.status]}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => removeTask.mutate(pt.taskId)}
+                            className="text-[#6e7681] hover:text-[#f85149] transition-colors"
+                            title="Remove from project"
                           >
-                            {TASK_STATUS_LABELS[task.status]}
-                          </span>
-                        )}
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium uppercase tracking-wider text-[#6e7681]">Mode:</span>
@@ -474,8 +525,55 @@ function ProjectDetailPage() {
                     </div>
                   ))}
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Task picker */}
+            {showPicker && (
+              <div className="border-t border-[#30363d]">
+                <div className="px-3 py-2 flex items-center gap-2 border-b border-[#21262d]">
+                  <Search className="h-3.5 w-3.5 text-[#6e7681] flex-shrink-0" />
+                  <input
+                    autoFocus
+                    value={taskSearch}
+                    onChange={(e) => setTaskSearch(e.target.value)}
+                    placeholder="Search tasks…"
+                    className="flex-1 bg-transparent text-xs text-[#e6edf3] placeholder-[#6e7681] outline-none"
+                  />
+                  <button
+                    onClick={() => { setShowPicker(false); setTaskSearch('') }}
+                    className="text-[#6e7681] hover:text-[#e6edf3] transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="flex flex-col overflow-y-auto" style={{ maxHeight: 200 }}>
+                  {pickerItems.length === 0 ? (
+                    <p className="px-4 py-3 text-xs text-[#6e7681]">
+                      {taskSearch ? 'No matching tasks.' : 'All tasks already added.'}
+                    </p>
+                  ) : (
+                    pickerItems.map((t) => (
+                      <div key={t.id} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-[#21262d]">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs text-[#e6edf3] truncate">{t.title}</span>
+                          <span className={`text-xs font-mono ${STATUS_BADGE[t.status as Task['status']] ?? 'text-[#8b949e]'}`}>
+                            {t.status}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => addTask.mutate({ taskId: t.id, executionMode: 'sequential' })}
+                          disabled={addTask.isPending}
+                          className="flex-shrink-0 px-2 py-0.5 text-xs border border-[#238636] text-[#3fb950] hover:bg-[#0d2818] disabled:opacity-40 transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
