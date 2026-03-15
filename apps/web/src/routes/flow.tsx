@@ -90,14 +90,14 @@ function AgentNode({ data }: { data: FlowNode }) {
   return (
     <div
       style={{
-        width: 100,
-        height: 60,
+        width: 120,
+        height: 64,
         background: '#161b22',
-        borderColor: '#30363d',
-        borderWidth: 1,
+        borderColor: data.hasEdges ? '#1f6feb' : '#30363d',
+        borderWidth: data.hasEdges ? 1.5 : 1,
         borderStyle: 'solid',
         borderRadius: 0,
-        opacity: data.isOnline ? 1 : 0.5,
+        opacity: data.hasEdges || data.isOnline ? 1 : 0.45,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -105,15 +105,17 @@ function AgentNode({ data }: { data: FlowNode }) {
       }}
     >
       <div className="flex items-center gap-1.5 overflow-hidden">
-        {data.emoji && <span style={{ fontSize: 16 }}>{data.emoji}</span>}
-        <span className="text-xs font-medium text-[#e6edf3] truncate flex-1">{data.name}</span>
+        {data.emoji && <span style={{ fontSize: 14 }}>{data.emoji}</span>}
+        <span className="text-[11px] font-medium text-[#e6edf3] truncate flex-1">{data.name}</span>
         <StatusDot status={data.isOnline ? 'online' : 'offline'} />
       </div>
-      <div className="text-xs mt-1">
+      <div className="text-[10px] mt-1">
         {data.hasActiveSession ? (
-          <span className="text-[#3fb950] font-mono">active</span>
+          <span className="text-[#3fb950] font-mono">● active</span>
+        ) : data.hasEdges ? (
+          <span className="text-[#58a6ff] font-mono">· in window</span>
         ) : (
-          <span className="text-[#6e7681] font-mono">idle</span>
+          <span className="text-[#6e7681] font-mono">· idle</span>
         )}
       </div>
     </div>
@@ -158,6 +160,8 @@ function FlowPage() {
     buildEdge: stableBuildEdge,
   })
 
+  const hasActivity = edges.length > 0
+
   return (
     <div className="h-full w-full" style={{ background: '#0d1117' }}>
       <ReactFlow
@@ -167,7 +171,7 @@ function FlowPage() {
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={{ padding: 0.25 }}
         proOptions={{ hideAttribution: true }}
       >
         <Background color="#21262d" gap={24} />
@@ -190,6 +194,18 @@ function FlowPage() {
             ))}
           </div>
         </Panel>
+
+        {!hasActivity && (
+          <Panel position="bottom-center">
+            <div className="mb-8 border border-[#30363d] bg-[#161b22] px-5 py-3 text-center">
+              <p className="font-mono text-[11px] text-[#8b949e]">No agent activity in this window.</p>
+              <p className="font-mono text-[10px] text-[#6e7681] mt-1">
+                Edges appear when tasks are dispatched to agents or agents post flow edges via{' '}
+                <span className="text-[#58a6ff]">POST /api/flow/edges</span>.
+              </p>
+            </div>
+          </Panel>
+        )}
       </ReactFlow>
     </div>
   )

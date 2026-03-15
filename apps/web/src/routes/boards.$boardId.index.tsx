@@ -1449,21 +1449,6 @@ function BoardDetailPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-[#8b949e]">Loading board…</div>
-    )
-  }
-
-  if (isError || !snapshot) {
-    return (
-      <div className="flex items-center justify-center h-64 text-[#f85149]">Failed to load board.</div>
-    )
-  }
-
-  const { board, tasks, approvals } = snapshot
-  const pendingApprovals = approvals.filter((a) => a.status === 'pending')
-
   const boardTags = useMemo(() => {
     const map = new Map<string, { id: string; name: string; color: string }>()
     snapshot?.tasks.forEach((t) => t.tags?.forEach((tag) => map.set(tag.id, tag)))
@@ -1481,6 +1466,21 @@ function BoardDetailPage() {
       return true
     })
   }, [snapshot?.tasks, filterText, filterPriority, filterAgentId, filterTagId, filterBlocked])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-[#8b949e]">Loading board…</div>
+    )
+  }
+
+  if (isError || !snapshot) {
+    return (
+      <div className="flex items-center justify-center h-64 text-[#f85149]">Failed to load board.</div>
+    )
+  }
+
+  const { board, tasks, approvals } = snapshot
+  const pendingApprovals = approvals.filter((a) => a.status === 'pending')
 
   const tasksByStatus = (status: Status) => filteredTasks.filter((t) => t.status === status)
 

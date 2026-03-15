@@ -3,12 +3,11 @@ import { api } from '@/lib/api'
 
 export interface FlowNode {
   id: string
-  agentId: string
   name: string
-  emoji?: string
+  emoji?: string | null
   isOnline: boolean
   hasActiveSession: boolean
-  edgeCount: number
+  hasEdges: boolean
 }
 
 export interface FlowEdge {
