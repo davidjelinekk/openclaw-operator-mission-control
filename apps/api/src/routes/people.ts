@@ -2,8 +2,8 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { db } from '../db/client.js'
-import { people, personThreads, personTasks, personProjects, tasks, projects } from '../db/schema.js'
-import { eq, desc, and, sql, count } from 'drizzle-orm'
+import { people, personThreads, personTasks, personProjects, tasks, projects, boards } from '../db/schema.js'
+import { eq, desc, and, sql } from 'drizzle-orm'
 import { CreatePersonSchema, UpdatePersonSchema, CreatePersonThreadSchema } from '@oc-operator/shared-types'
 
 const router = new Hono()
@@ -40,9 +40,10 @@ router.get('/:id', async (c) => {
     .where(eq(personThreads.personId, id))
     .orderBy(desc(personThreads.lastMessageAt))
 
-  const linkedTasks = await db.select({ task: tasks })
+  const linkedTasks = await db.select({ task: tasks, boardName: boards.name })
     .from(personTasks)
     .leftJoin(tasks, eq(personTasks.taskId, tasks.id))
+    .leftJoin(boards, eq(tasks.boardId, boards.id))
     .where(eq(personTasks.personId, id))
 
   const linkedProjects = await db.select({ project: projects })
@@ -83,6 +84,17 @@ router.post('/:id/threads', zValidator('json', CreatePersonThreadSchema), async 
   return c.json(thread, 201)
 })
 
+// Get tasks linked to person
+router.get('/:id/tasks', async (c) => {
+  const personId = c.req.param('id')
+  const rows = await db.select({ task: tasks, boardName: boards.name })
+    .from(personTasks)
+    .leftJoin(tasks, eq(personTasks.taskId, tasks.id))
+    .leftJoin(boards, eq(tasks.boardId, boards.id))
+    .where(eq(personTasks.personId, personId))
+  return c.json(rows)
+})
+
 // Link task
 router.post('/:id/tasks', zValidator('json', z.object({ taskId: z.string().uuid() })), async (c) => {
   const personId = c.req.param('id')
@@ -105,6 +117,50 @@ router.post('/:id/projects', zValidator('json', z.object({ projectId: z.string()
   const { projectId } = c.req.valid('json')
   await db.insert(personProjects).values({ personId, projectId }).onConflictDoNothing()
   return c.json({ ok: true }, 201)
+})
+
+// Unlink project
+router.delete('/:id/projects/:projectId', async (c) => {
+  const personId = c.req.param('id')
+  const projectId = c.req.param('projectId')
+  await db.delete(personProjects).where(and(eq(personProjects.personId, personId), eq(personProjects.projectId, projectId)))
+  return c.json({ ok: true })
+})
+
+// Update thread
+router.patch('/:id/threads/:threadId', zValidator('json', z.object({
+  summary: z.string().optional(),
+  lastMessageAt: z.string().optional(),
+})), async (c) => {
+  const personId = c.req.param('id')
+  const threadId = c.req.param('threadId')
+  const { summary, lastMessageAt } = c.req.valid('json')
+
+  const updates: Record<string, unknown> = {}
+  if (summary !== undefined) updates.summary = summary
+  if (lastMessageAt !== undefined) updates.lastMessageAt = new Date(lastMessageAt)
+
+  if (Object.keys(updates).length === 0) return c.json({ error: 'No fields to update' }, 400)
+
+  const [updated] = await db
+    .update(personThreads)
+    .set(updates)
+    .where(and(eq(personThreads.id, threadId), eq(personThreads.personId, personId)))
+    .returning()
+  if (!updated) return c.json({ error: 'Not found' }, 404)
+  return c.json(updated)
+})
+
+// Delete thread
+router.delete('/:id/threads/:threadId', async (c) => {
+  const personId = c.req.param('id')
+  const threadId = c.req.param('threadId')
+  const [deleted] = await db
+    .delete(personThreads)
+    .where(and(eq(personThreads.id, threadId), eq(personThreads.personId, personId)))
+    .returning()
+  if (!deleted) return c.json({ error: 'Not found' }, 404)
+  return c.json({ ok: true })
 })
 
 export default router

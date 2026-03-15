@@ -35,6 +35,14 @@ export function useCreateTag() {
   })
 }
 
+export function useUpdateTag() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; color?: string }) =>
+      api.patch(`api/tags/${id}`, { json: data }).json<Tag>(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags'] }),
+  })
+}
+
 export function useDeleteTag() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`api/tags/${id}`).json<void>(),

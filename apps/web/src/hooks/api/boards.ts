@@ -44,6 +44,7 @@ export interface Task {
   pendingApproval?: boolean
   outcome?: 'success' | 'failed' | 'partial' | 'abandoned' | null
   completedAt?: string | null
+  inProgressAt?: string | null
   createdAt?: string
   updatedAt?: string
   tags?: Array<{ id: string; name: string; color: string }>
@@ -62,6 +63,17 @@ export function useCreateBoard() {
     mutationFn: (data: { name: string; description?: string; gatewayAgentId?: string }) =>
       api.post('api/boards', { json: data }).json<Board>(),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['boards'] })
+    },
+  })
+}
+
+export function useUpdateBoard(boardId: string) {
+  return useMutation({
+    mutationFn: (data: Partial<Omit<Board, 'id' | 'taskCount' | 'lastActivity' | 'pendingApprovals'>>) =>
+      api.patch(`api/boards/${boardId}`, { json: data }).json<Board>(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['board', boardId, 'snapshot'] })
       queryClient.invalidateQueries({ queryKey: ['boards'] })
     },
   })

@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
-import { useTasksInProgress, useInboxQueue } from '@/hooks/api/tasks'
+import { useTasksInProgress, useInboxQueue, useCancelTask } from '@/hooks/api/tasks'
 import type { Task } from '@/hooks/api/boards'
+import { useBoards } from '@/hooks/api/boards'
 
 export const Route = createFileRoute('/workload')({
   component: WorkloadPage,
@@ -37,6 +38,14 @@ type TaskWithInProgressAt = Task & { inProgressAt?: string | null }
 function WorkloadPage() {
   const inProgress = useTasksInProgress()
   const queue = useInboxQueue(undefined, 25)
+  const boards = useBoards()
+  const cancelTask = useCancelTask()
+
+  const boardsById = useMemo(() => {
+    const map = new Map<string, string>()
+    boards.data?.forEach((b) => map.set(b.id, b.name))
+    return map
+  }, [boards.data])
 
   const grouped = useMemo(() => {
     const tasks = (inProgress.data ?? []) as TaskWithInProgressAt[]
@@ -91,7 +100,13 @@ function WorkloadPage() {
                     <span className="font-mono text-xs text-[#e6edf3] truncate">
                       {agentId === '__unassigned__' ? 'Unassigned' : agentId}
                     </span>
-                    <span className="font-mono text-[10px] text-[#58a6ff] bg-[#1f6feb]/20 border border-[#1f6feb]/30 px-1.5 py-0.5 flex-shrink-0">
+                    <span className={`font-mono text-[10px] px-1.5 py-0.5 flex-shrink-0 border ${
+                      tasks.length > 6
+                        ? 'text-[#f85149] bg-[#f85149]/10 border-[#f85149]/30'
+                        : tasks.length >= 3
+                        ? 'text-[#d29922] bg-[#d29922]/10 border-[#d29922]/30'
+                        : 'text-[#3fb950] bg-[#3fb950]/10 border-[#3fb950]/30'
+                    }`}>
                       {tasks.length}
                     </span>
                   </div>
@@ -102,9 +117,23 @@ function WorkloadPage() {
                           <PriorityBadge priority={task.priority} />
                           <span className="font-mono text-xs text-[#c9d1d9] truncate">{task.title}</span>
                         </div>
-                        <span className="font-mono text-[10px] text-[#6e7681] flex-shrink-0">
-                          {relativeTime(task.inProgressAt)}
-                        </span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`font-mono text-[10px] ${
+                            (() => {
+                              const h = task.inProgressAt ? Math.floor((Date.now() - new Date(task.inProgressAt).getTime()) / 3600000) : 0
+                              return h > 4 ? 'text-[#d29922]' : 'text-[#6e7681]'
+                            })()
+                          }`}>
+                            {relativeTime(task.inProgressAt)}
+                          </span>
+                          <button
+                            onClick={() => cancelTask.mutate({ id: task.id })}
+                            disabled={cancelTask.isPending}
+                            className="font-mono text-[9px] text-[#6e7681] border border-[#30363d] px-1.5 py-0.5 hover:text-[#f85149] hover:border-[#da3633]/50 transition-colors disabled:opacity-50"
+                          >
+                            cancel
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -137,8 +166,8 @@ function WorkloadPage() {
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       {task.boardId && (
-                        <span className="font-mono text-[10px] text-[#6e7681] truncate max-w-[80px]">
-                          {task.boardId}
+                        <span className="font-mono text-[10px] text-[#6e7681] truncate max-w-[100px]">
+                          {boardsById.get(task.boardId) ?? task.boardId.slice(0, 8)}
                         </span>
                       )}
                       <span className="font-mono text-[10px] text-[#6e7681]">

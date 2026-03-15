@@ -1,6 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useAgents, type Agent } from '@/hooks/api/agents'
-import { Loader2 } from 'lucide-react'
+import { useAgentInProgressCount } from '@/hooks/api/tasks'
+import { Loader2, Plus } from 'lucide-react'
 
 export const Route = createFileRoute('/agents')({
   component: AgentsPage,
@@ -25,60 +26,71 @@ const STATUS_TEXT: Record<Agent['status'], string> = {
 }
 
 function AgentCard({ agent }: { agent: Agent }) {
+  const inProgress = useAgentInProgressCount(agent.id)
   return (
-    <div className="border border-[#30363d] bg-[#161b22] p-4 flex flex-col gap-3 hover:border-[#58a6ff]/40 transition-colors">
-      {/* header row */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 flex items-center justify-center bg-[#21262d] border border-[#30363d] text-xl flex-shrink-0">
-            {agent.emoji ?? '🤖'}
+    <Link to="/agents/$agentId" params={{ agentId: agent.id }} className="block hover:no-underline">
+      <div className="border border-[#30363d] bg-[#161b22] p-4 flex flex-col gap-3 hover:border-[#58a6ff]/40 transition-colors">
+        {/* header row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 flex items-center justify-center bg-[#21262d] border border-[#30363d] text-xl flex-shrink-0">
+              {agent.emoji ?? '🤖'}
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-[#e6edf3] truncate">{agent.name}</p>
+              <p className="font-mono text-[10px] text-[#6e7681] truncate">{agent.id}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-[#e6edf3] truncate">{agent.name}</p>
-            <p className="font-mono text-[10px] text-[#6e7681] truncate">{agent.id}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[agent.status]}`} />
-          <span className={`font-mono text-xs ${STATUS_TEXT[agent.status]}`}>
-            {STATUS_LABEL[agent.status]}
-          </span>
-        </div>
-      </div>
-
-      {/* model info */}
-      <div className="flex flex-col gap-1.5 border-t border-[#21262d] pt-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">model</span>
-          <span className="font-mono text-xs text-[#8b949e] truncate max-w-[60%] text-right">
-            {agent.primaryModel ?? '—'}
-          </span>
-        </div>
-
-        {agent.fallbackModels && agent.fallbackModels.length > 0 && (
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">fallback</span>
-            <span className="font-mono text-xs text-[#6e7681] truncate max-w-[60%] text-right">
-              {agent.fallbackModels[0]}{agent.fallbackModels.length > 1 ? ` +${agent.fallbackModels.length - 1}` : ''}
+          <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[agent.status]}`} />
+            <span className={`font-mono text-xs ${STATUS_TEXT[agent.status]}`}>
+              {STATUS_LABEL[agent.status]}
             </span>
           </div>
-        )}
-
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">sessions</span>
-          <span className={`font-mono text-xs ${(agent.sessionCount ?? 0) > 0 ? 'text-[#3fb950]' : 'text-[#6e7681]'}`}>
-            {agent.sessionCount ?? 0}
-          </span>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">heartbeat</span>
-          <span className={`font-mono text-xs ${agent.hasHeartbeat ? 'text-[#3fb950]' : 'text-[#6e7681]'}`}>
-            {agent.hasHeartbeat ? 'yes' : 'no'}
-          </span>
+        {/* model info */}
+        <div className="flex flex-col gap-1.5 border-t border-[#21262d] pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">model</span>
+            <span className="font-mono text-xs text-[#8b949e] truncate max-w-[60%] text-right">
+              {agent.primaryModel ?? '—'}
+            </span>
+          </div>
+
+          {agent.fallbackModels && agent.fallbackModels.length > 0 && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">fallback</span>
+              <span className="font-mono text-xs text-[#6e7681] truncate max-w-[60%] text-right">
+                {agent.fallbackModels[0]}{agent.fallbackModels.length > 1 ? ` +${agent.fallbackModels.length - 1}` : ''}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">sessions</span>
+            <span className={`font-mono text-xs ${(agent.sessionCount ?? 0) > 0 ? 'text-[#3fb950]' : 'text-[#6e7681]'}`}>
+              {agent.sessionCount ?? 0}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">heartbeat</span>
+            <span className={`font-mono text-xs ${agent.hasHeartbeat ? 'text-[#3fb950]' : 'text-[#6e7681]'}`}>
+              {agent.hasHeartbeat ? 'yes' : 'no'}
+            </span>
+          </div>
+
+          {/* In-progress count */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest">in progress</span>
+            <span className={`font-mono text-xs ${(inProgress.data?.length ?? 0) > 0 ? 'text-[#d29922]' : 'text-[#6e7681]'}`}>
+              {inProgress.data?.length ?? 0}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
@@ -95,14 +107,21 @@ function AgentsPage() {
         <h1 className="font-mono text-[13px] font-semibold text-[#e6edf3] tracking-wide uppercase flex items-center gap-2">
           <span className="text-[#58a6ff]">~/</span>agents
         </h1>
-        {!isLoading && agents && (
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#3fb950]" />
-            <span className="font-mono text-xs text-[#8b949e]">
-              {online}/{total} online
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {!isLoading && agents && (
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#3fb950]" />
+              <span className="font-mono text-xs text-[#8b949e]">
+                {online}/{total} online
+              </span>
+            </div>
+          )}
+          <Link to="/agents/new">
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1f6feb] hover:bg-[#388bfd] text-white font-mono text-xs transition-colors">
+              <Plus className="h-3.5 w-3.5" /> New Agent
+            </button>
+          </Link>
+        </div>
       </div>
 
       {isLoading && (

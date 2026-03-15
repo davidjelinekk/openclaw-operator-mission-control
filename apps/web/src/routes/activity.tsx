@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useActivity, type ActivityEvent } from '@/hooks/api/activity'
 
@@ -6,7 +6,7 @@ export const Route = createFileRoute('/activity')({
   component: ActivityPage,
 })
 
-type EventFilter = 'all' | 'task.comment' | 'approval' | 'board.chat'
+type EventFilter = 'all' | 'task.note' | 'approval' | 'board.chat'
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -20,7 +20,7 @@ function relativeTime(iso: string): string {
 }
 
 function eventColor(eventType: string): string {
-  if (eventType === 'task.comment') return '#58a6ff'
+  if (eventType === 'task.note') return '#58a6ff'
   if (eventType.startsWith('approval.')) return '#d29922'
   if (eventType === 'board.chat') return '#3fb950'
   return '#6e7681'
@@ -60,7 +60,16 @@ function EventItem({ event }: { event: ActivityEvent }) {
                 board
               </a>
             )}
-            {event.taskId && (
+            {event.taskId && event.boardId && (
+              <Link
+                to="/boards/$boardId"
+                params={{ boardId: event.boardId }}
+                className="text-[11px] font-mono text-[#58a6ff] hover:underline"
+              >
+                task:{event.taskId.slice(0, 8)}
+              </Link>
+            )}
+            {event.taskId && !event.boardId && (
               <span className="text-[11px] font-mono text-[#6e7681]">task:{event.taskId.slice(0, 8)}</span>
             )}
           </div>
@@ -72,7 +81,7 @@ function EventItem({ event }: { event: ActivityEvent }) {
 
 const FILTERS: { value: EventFilter; label: string }[] = [
   { value: 'all', label: 'all' },
-  { value: 'task.comment', label: 'task.comment' },
+  { value: 'task.note', label: 'task.note' },
   { value: 'approval', label: 'approval.*' },
   { value: 'board.chat', label: 'board.chat' },
 ]

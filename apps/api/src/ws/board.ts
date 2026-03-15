@@ -2,8 +2,8 @@ import type { IncomingMessage } from 'node:http'
 import type { WebSocket as WsType } from 'ws'
 import { WebSocketServer } from 'ws'
 import { db } from '../db/client.js'
-import { boards, tasks } from '../db/schema.js'
-import { eq } from 'drizzle-orm'
+import { boards, tasks, approvals } from '../db/schema.js'
+import { eq, and } from 'drizzle-orm'
 import { redis, redisSub } from '../lib/redis.js'
 import { validateWsToken } from '../lib/auth.js'
 
@@ -46,6 +46,50 @@ export function createBoardWsHandler(): WebSocketServer {
       try {
         const msg = JSON.parse(raw.toString())
         if (msg.type === 'task.move' && msg.taskId && msg.status) {
+          const [existingTask] = await db.select().from(tasks).where(eq(tasks.id, msg.taskId))
+          if (!existingTask) return
+
+          const statusChanging = msg.status !== existingTask.status
+          if (statusChanging) {
+            const [board] = await db.select().from(boards).where(eq(boards.id, boardId))
+            if (board) {
+              // 1. blockStatusChangesWithPendingApproval
+              if (board.blockStatusChangesWithPendingApproval) {
+                const [pendingApproval] = await db.select().from(approvals)
+                  .where(and(eq(approvals.taskId, msg.taskId), eq(approvals.status, 'pending')))
+                if (pendingApproval) {
+                  ws.send(JSON.stringify({ type: 'task.move.blocked', taskId: msg.taskId, reason: 'Status change blocked: this task has a pending approval.' }))
+                  return
+                }
+              }
+
+              // 2. requireReviewBeforeDone
+              if (board.requireReviewBeforeDone && msg.status === 'done' && existingTask.status !== 'review') {
+                ws.send(JSON.stringify({ type: 'task.move.blocked', taskId: msg.taskId, reason: 'Task must pass through Review before being marked Done.' }))
+                return
+              }
+
+              // 3. requireApprovalForDone
+              if (board.requireApprovalForDone && msg.status === 'done') {
+                const [approvedApproval] = await db.select().from(approvals)
+                  .where(and(eq(approvals.taskId, msg.taskId), eq(approvals.status, 'approved')))
+                if (!approvedApproval) {
+                  ws.send(JSON.stringify({ type: 'task.move.blocked', taskId: msg.taskId, reason: 'An approved approval is required before marking Done.' }))
+                  return
+                }
+              }
+
+              // 4. onlyLeadCanChangeStatus
+              if (board.onlyLeadCanChangeStatus) {
+                const agentId = msg.agentId
+                if (!agentId || agentId !== board.gatewayAgentId) {
+                  ws.send(JSON.stringify({ type: 'task.move.blocked', taskId: msg.taskId, reason: 'Only the lead agent can change task status.' }))
+                  return
+                }
+              }
+            }
+          }
+
           await db.update(tasks).set({ status: msg.status, updatedAt: new Date() }).where(eq(tasks.id, msg.taskId))
           const [updated] = await db.select().from(tasks).where(eq(tasks.id, msg.taskId))
           if (updated) {

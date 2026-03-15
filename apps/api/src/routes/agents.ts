@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
+import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { gatewayClient } from '../services/gateway/client.js'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { config } from '../config.js'
 
 export const agentsRouter = new Hono()
@@ -24,6 +27,14 @@ function loadAgentsFromConfig(): AgentConfig[] {
   } catch {
     return []
   }
+}
+
+function saveAgentsToConfig(agents: AgentConfig[]): void {
+  const cfgPath = join(config.OPENCLAW_HOME, 'openclaw.json')
+  const raw = JSON.parse(readFileSync(cfgPath, 'utf-8'))
+  raw.agents = raw.agents ?? {}
+  raw.agents.list = agents
+  writeFileSync(cfgPath, JSON.stringify(raw, null, 2))
 }
 
 agentsRouter.get('/', async (c) => {
@@ -99,6 +110,50 @@ agentsRouter.get('/:id', async (c) => {
     // ignore
   }
   return c.json({ ...agent, ...liveData })
+})
+
+agentsRouter.patch('/:id', zValidator('json', z.object({ name: z.string().optional(), description: z.string().optional() })), async (c) => {
+  const agentId = c.req.param('id')
+  const { name, description } = c.req.valid('json')
+  try {
+    const result = await gatewayClient.call('agent.update', { id: agentId, name, description })
+    return c.json(result)
+  } catch (err) {
+    return c.json({ error: String(err) }, 502)
+  }
+})
+
+agentsRouter.post('/', zValidator('json', z.object({
+  name: z.string().min(1),
+  emoji: z.string().optional(),
+  theme: z.string().optional(),
+  primaryModel: z.string().optional(),
+  fallbackModels: z.array(z.string()).optional(),
+  heartbeatInterval: z.string().optional(),
+})), async (c) => {
+  const body = c.req.valid('json')
+  const id = randomUUID()
+  const newAgent: AgentConfig = {
+    id,
+    name: body.name,
+    identity: { name: body.name, emoji: body.emoji, theme: body.theme },
+    model: { primary: body.primaryModel, fallbacks: body.fallbackModels ?? [] },
+    heartbeat: body.heartbeatInterval ? { every: body.heartbeatInterval } : undefined,
+  }
+  const existing = loadAgentsFromConfig()
+  saveAgentsToConfig([...existing, newAgent])
+  try { await gatewayClient.call('agent.create', { id, name: body.name }) } catch { /* ignore */ }
+  return c.json(newAgent, 201)
+})
+
+agentsRouter.delete('/:id', async (c) => {
+  const agentId = c.req.param('id')
+  const existing = loadAgentsFromConfig()
+  const filtered = existing.filter((a) => a.id !== agentId)
+  if (filtered.length === existing.length) return c.json({ error: 'Not found' }, 404)
+  saveAgentsToConfig(filtered)
+  try { await gatewayClient.call('agent.delete', { id: agentId }) } catch { /* ignore */ }
+  return c.json({ ok: true })
 })
 
 agentsRouter.get('/:id/sessions', async (c) => {

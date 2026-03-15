@@ -32,4 +32,5 @@ const gatewayToken = raw.GATEWAY_TOKEN || loadOpenclawGatewayToken(openclawHome)
 export const config = {
   ...raw,
   GATEWAY_TOKEN: gatewayToken,
+  BASE_URL: process.env.BASE_URL ?? `http://localhost:${raw.PORT}`,
 } as const

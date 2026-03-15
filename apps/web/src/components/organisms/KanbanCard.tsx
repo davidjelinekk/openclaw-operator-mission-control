@@ -10,9 +10,9 @@ interface KanbanCardProps {
 }
 
 const outcomeBadge: Record<NonNullable<Task['outcome']>, { label: string; className: string }> = {
-  success:   { label: 'SUCCESS',   className: 'text-[#3fb950] border-[#238636]' },
-  failed:    { label: 'FAILED',    className: 'text-[#f85149] border-[#da3633]' },
-  partial:   { label: 'PARTIAL',   className: 'text-[#d29922] border-[#9e6a03]' },
+  success:   { label: 'SUCCESS',   className: 'text-[#3fb950] border-[#238636] bg-[#238636]/10' },
+  failed:    { label: 'FAILED',    className: 'text-[#f85149] border-[#da3633] bg-[#da3633]/15' },
+  partial:   { label: 'PARTIAL',   className: 'text-[#d29922] border-[#9e6a03] bg-[#9e6a03]/10' },
   abandoned: { label: 'ABANDONED', className: 'text-[#6e7681] border-[#30363d]' },
 }
 
@@ -43,21 +43,55 @@ function formatCompletedAt(dateStr: string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function timeInStatus(task: Task): { label: string; warn: boolean } | null {
+  const now = Date.now()
+  if (task.status === 'in_progress' && task.inProgressAt) {
+    const diff = now - new Date(task.inProgressAt).getTime()
+    const h = Math.floor(diff / 3600000)
+    const d = Math.floor(h / 24)
+    const label = d > 0 ? `${d}d` : `${h}h`
+    return { label, warn: h > 4 }
+  }
+  if (task.status === 'inbox') {
+    if (!task.createdAt) return null
+    const diff = now - new Date(task.createdAt).getTime()
+    const h = Math.floor(diff / 3600000)
+    const d = Math.floor(h / 24)
+    if (h < 24) return null
+    return { label: `waiting ${d}d`, warn: false }
+  }
+  if (task.status === 'review' && task.updatedAt) {
+    const diff = now - new Date(task.updatedAt).getTime()
+    const h = Math.floor(diff / 3600000)
+    if (h < 2) return null
+    return { label: `review ${h}h`, warn: true }
+  }
+  return null
+}
+
 export function KanbanCard({ task, agents, isDragging, onClick }: KanbanCardProps) {
   const priority = priorityBadge[task.priority]
   const assignedAgent = task.assignedAgentId ? agents?.find((a) => a.id === task.assignedAgentId) : undefined
   const dueDateInfo = task.dueDate ? formatRelativeDate(task.dueDate) : null
   const outcome = task.outcome ? outcomeBadge[task.outcome] : null
+  const statusTime = timeInStatus(task)
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        'bg-[#161b22] border border-[#30363d] p-3 cursor-pointer select-none',
+        'border border-[#30363d] p-3 cursor-pointer select-none transition-colors',
         priority.borderLeft,
-        'hover:border-[#58a6ff] transition-colors',
+        'hover:border-[#58a6ff]',
         isDragging && 'opacity-50',
       )}
+      style={{
+        background: task.status === 'in_progress'
+          ? 'linear-gradient(135deg, #1a1600 0%, #161b22 40%)'
+          : task.status === 'done'
+          ? 'linear-gradient(135deg, #0d1a0d 0%, #161b22 40%)'
+          : '#161b22',
+      }}
     >
       <p className="text-sm text-[#e6edf3] font-medium line-clamp-2 leading-snug mb-2">{task.title}</p>
 
@@ -129,6 +163,17 @@ export function KanbanCard({ task, agents, isDragging, onClick }: KanbanCardProp
               {formatCompletedAt(task.completedAt)}
             </span>
           )}
+        </div>
+      )}
+
+      {statusTime && (
+        <div className="mt-1.5">
+          <span className={cn(
+            'text-[10px] font-mono',
+            statusTime.warn ? 'text-[#d29922]' : 'text-[#6e7681]',
+          )}>
+            {statusTime.label}
+          </span>
         </div>
       )}
     </div>

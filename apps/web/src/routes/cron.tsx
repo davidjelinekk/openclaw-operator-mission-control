@@ -1,7 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import { Play, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
-import { useCronJobs, useTriggerCron, type CronJob, type CronRun } from '@/hooks/api/cron'
+import { Play, ChevronDown, ChevronRight, Loader2, Trash2, Plus, X } from 'lucide-react'
+import {
+  useCronJobs,
+  useTriggerCron,
+  useCreateCron,
+  useDeleteCron,
+  type CronJob,
+  type CronRun,
+} from '@/hooks/api/cron'
+import { useAgents } from '@/hooks/api/agents'
 import { AgentChip } from '@/components/atoms/AgentChip'
 
 export const Route = createFileRoute('/cron')({
@@ -34,6 +42,18 @@ function countdown(iso?: string): string {
   const remSecs = secs % 60
   if (mins > 0) return `in ${mins}m ${remSecs}s`
   return `in ${secs}s`
+}
+
+function describeSchedule(expr: string): string {
+  switch (expr.trim()) {
+    case '* * * * *': return 'every minute'
+    case '0 * * * *': return 'every hour'
+    case '0 0 * * *': return 'daily at midnight'
+    case '0 12 * * *': return 'daily at noon'
+    case '0 0 * * 0': return 'weekly on Sunday'
+    case '0 0 1 * *': return 'monthly on the 1st'
+    default: return expr
+  }
 }
 
 const STATUS_STYLES: Record<CronJob['status'], string> = {
@@ -80,9 +100,13 @@ function CountdownCell({ nextRunAt }: { nextRunAt?: string }) {
 function CronRow({ job }: { job: CronJob }) {
   const [expanded, setExpanded] = useState(false)
   const [triggering, setTriggering] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const trigger = useTriggerCron()
+  const deleteCron = useDeleteCron()
 
   const runs = job.recentRuns?.slice(0, 5) ?? []
+  const scheduleLabel = describeSchedule(job.schedule)
+  const showHint = scheduleLabel !== job.schedule
 
   return (
     <>
@@ -98,7 +122,12 @@ function CronRow({ job }: { job: CronJob }) {
             <span className="text-[#e6edf3] font-medium">{job.name}</span>
           </div>
         </td>
-        <td className="py-3 px-4 font-mono text-xs text-[#8b949e]">{job.schedule}</td>
+        <td className="py-3 px-4">
+          <span className="font-mono text-xs text-[#8b949e]">{job.schedule}</span>
+          {showHint && (
+            <span className="ml-2 text-xs text-[#6e7681]">({scheduleLabel})</span>
+          )}
+        </td>
         <td className="py-3 px-4">
           {job.agentId ? (
             <AgentChip emoji="🤖" name={job.agentId} />
@@ -128,23 +157,45 @@ function CronRow({ job }: { job: CronJob }) {
           <CountdownCell nextRunAt={job.nextRunAt} />
         </td>
         <td className="py-3 px-4">
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              if (triggering) return
-              setTriggering(true)
-              trigger.mutate(job.id, { onSettled: () => setTriggering(false) })
-            }}
-            disabled={triggering}
-            className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[#30363d] bg-[#21262d] text-[#e6edf3] hover:bg-[#30363d] transition-colors disabled:opacity-50"
-          >
-            {triggering ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Play className="w-3 h-3" />
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => {
+                if (triggering) return
+                setTriggering(true)
+                trigger.mutate(job.id, { onSettled: () => setTriggering(false) })
+              }}
+              disabled={triggering}
+              className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[#30363d] bg-[#21262d] text-[#e6edf3] hover:bg-[#30363d] transition-colors disabled:opacity-50"
+            >
+              {triggering ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Play className="w-3 h-3" />
+              )}
+              Run
+            </button>
+            <button
+              onClick={() => {
+                if (deleting) return
+                setDeleting(true)
+                deleteCron.mutate(job.id, { onSettled: () => setDeleting(false) })
+              }}
+              disabled={deleting}
+              className="flex items-center justify-center w-7 h-7 border border-[#30363d] bg-[#21262d] text-[#6e7681] hover:text-[#f85149] hover:border-[#6e0000] transition-colors disabled:opacity-50"
+              title="Delete cron job"
+            >
+              {deleting ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Trash2 className="w-3 h-3" />
+              )}
+            </button>
+            {deleteCron.isError && (
+              <span className="text-xs text-[#f85149] font-mono">
+                {String(deleteCron.error)}
+              </span>
             )}
-            Run
-          </button>
+          </div>
         </td>
       </tr>
       {expanded && (
@@ -183,8 +234,143 @@ function CronRow({ job }: { job: CronJob }) {
   )
 }
 
+interface CreateCronFormProps {
+  onClose: () => void
+}
+
+function CreateCronForm({ onClose }: CreateCronFormProps) {
+  const [name, setName] = useState('')
+  const [schedule, setSchedule] = useState('')
+  const [agentId, setAgentId] = useState('')
+  const [command, setCommand] = useState('')
+  const { data: agents } = useAgents()
+  const createCron = useCreateCron()
+
+  const scheduleHint = schedule ? describeSchedule(schedule) : ''
+  const showHint = scheduleHint && scheduleHint !== schedule
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name || !schedule || !agentId || !command) return
+    createCron.mutate(
+      { name, schedule, agentId, command },
+      {
+        onSuccess: () => {
+          onClose()
+        },
+      },
+    )
+  }
+
+  return (
+    <div className="border border-[#30363d] bg-[#161b22] p-5 mb-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-mono text-xs font-semibold text-[#e6edf3] uppercase tracking-wide">New Cron Job</h2>
+        <button
+          onClick={onClose}
+          className="text-[#6e7681] hover:text-[#e6edf3] transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-mono text-[#8b949e] uppercase tracking-wide">Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="sync-reports"
+            required
+            className="bg-[#0d1117] border border-[#30363d] text-[#e6edf3] text-sm px-3 py-2 font-mono focus:outline-none focus:border-[#58a6ff] placeholder-[#484f58]"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-mono text-[#8b949e] uppercase tracking-wide">
+            Schedule
+            {showHint && (
+              <span className="ml-2 normal-case text-[#3fb950]">— {scheduleHint}</span>
+            )}
+          </label>
+          <input
+            type="text"
+            value={schedule}
+            onChange={(e) => setSchedule(e.target.value)}
+            placeholder="0 * * * *"
+            required
+            className="bg-[#0d1117] border border-[#30363d] text-[#e6edf3] text-sm px-3 py-2 font-mono focus:outline-none focus:border-[#58a6ff] placeholder-[#484f58]"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-mono text-[#8b949e] uppercase tracking-wide">Agent</label>
+          {agents && agents.length > 0 ? (
+            <select
+              value={agentId}
+              onChange={(e) => setAgentId(e.target.value)}
+              required
+              className="bg-[#0d1117] border border-[#30363d] text-[#e6edf3] text-sm px-3 py-2 font-mono focus:outline-none focus:border-[#58a6ff]"
+            >
+              <option value="">Select agent…</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={agentId}
+              onChange={(e) => setAgentId(e.target.value)}
+              placeholder="agent-id"
+              required
+              className="bg-[#0d1117] border border-[#30363d] text-[#e6edf3] text-sm px-3 py-2 font-mono focus:outline-none focus:border-[#58a6ff] placeholder-[#484f58]"
+            />
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-mono text-[#8b949e] uppercase tracking-wide">Command / Payload</label>
+          <textarea
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            placeholder="run-sync --all"
+            required
+            rows={1}
+            className="bg-[#0d1117] border border-[#30363d] text-[#e6edf3] text-sm px-3 py-2 font-mono focus:outline-none focus:border-[#58a6ff] placeholder-[#484f58] resize-none"
+          />
+        </div>
+
+        <div className="col-span-2 flex items-center gap-3 pt-1">
+          <button
+            type="submit"
+            disabled={createCron.isPending}
+            className="flex items-center gap-2 px-4 py-1.5 text-xs font-mono border border-[#238636] bg-[#238636]/20 text-[#3fb950] hover:bg-[#238636]/40 transition-colors disabled:opacity-50"
+          >
+            {createCron.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+            Create
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-1.5 text-xs font-mono border border-[#30363d] bg-transparent text-[#8b949e] hover:text-[#e6edf3] transition-colors"
+          >
+            Cancel
+          </button>
+          {createCron.isError && (
+            <span className="text-xs text-[#f85149] font-mono">
+              {String(createCron.error)}
+            </span>
+          )}
+        </div>
+      </form>
+    </div>
+  )
+}
+
 function CronPage() {
   const { data: jobs, isLoading, dataUpdatedAt } = useCronJobs()
+  const [showCreate, setShowCreate] = useState(false)
   const [, setTick] = useState(0)
 
   useEffect(() => {
@@ -200,8 +386,19 @@ function CronPage() {
         <h1 className="font-mono text-[13px] font-semibold text-[#e6edf3] tracking-wide uppercase flex items-center gap-2">
           <span className="text-[#58a6ff]">~/</span>cron
         </h1>
-        <p className="text-xs font-mono text-[#6e7681]">Last refreshed {lastRefresh}</p>
+        <div className="flex items-center gap-4">
+          <p className="text-xs font-mono text-[#6e7681]">Last refreshed {lastRefresh}</p>
+          <button
+            onClick={() => setShowCreate((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono border border-[#30363d] bg-[#21262d] text-[#e6edf3] hover:bg-[#30363d] transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Job
+          </button>
+        </div>
       </div>
+
+      {showCreate && <CreateCronForm onClose={() => setShowCreate(false)} />}
 
       {isLoading && (
         <div className="text-center py-16 text-[#6e7681]">Loading cron jobs…</div>

@@ -13,8 +13,7 @@ export interface AnalyticsTimeseriesItem {
   bucket: string
   agentId: string
   costUsd: string
-  inputTokens: number
-  outputTokens: number
+  tokens: number
 }
 
 export interface AnalyticsByAgent {

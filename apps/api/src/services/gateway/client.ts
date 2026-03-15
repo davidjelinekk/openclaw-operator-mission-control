@@ -23,11 +23,14 @@ type PendingRequest = {
 
 type EventHandler = (data: unknown) => void
 
+const PING_INTERVAL_MS = 30_000
+
 class GatewayClient {
   private ws: WebSocket | null = null
   private pending = new Map<string, PendingRequest>()
   private subscriptions = new Map<string, EventHandler[]>()
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private pingTimer: ReturnType<typeof setInterval> | null = null
   private reconnectDelay = 1000
   private connected = false
   private connecting = false
@@ -93,6 +96,7 @@ class GatewayClient {
       this.connected = false
       this.connecting = false
       this.ws = null
+      this._stopPing()
       this._rejectAll(new Error('Gateway disconnected'))
       if (!this.stopped) {
         this._scheduleReconnect()
@@ -133,7 +137,7 @@ class GatewayClient {
       client: {
         id: CLIENT_ID,
         version: '1.0.0',
-        platform: 'typescript',
+        platform: process.platform,
         mode: CLIENT_MODE,
       },
       device: devicePayload,
@@ -155,6 +159,7 @@ class GatewayClient {
       this.connecting = false
       this.reconnectDelay = 1000
       console.log('[gateway] connected')
+      this._startPing()
     }).catch((err: Error) => {
       console.error('[gateway] connect failed:', err.message)
       this.connecting = false
@@ -197,6 +202,22 @@ class GatewayClient {
       req.reject(err)
     }
     this.pending.clear()
+  }
+
+  private _startPing(): void {
+    this._stopPing()
+    this.pingTimer = setInterval(() => {
+      if (this.connected && this.ws) {
+        this.ws.ping()
+      }
+    }, PING_INTERVAL_MS)
+  }
+
+  private _stopPing(): void {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer)
+      this.pingTimer = null
+    }
   }
 
   private _scheduleReconnect(): void {
@@ -243,6 +264,7 @@ class GatewayClient {
 
   stop(): void {
     this.stopped = true
+    this._stopPing()
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null

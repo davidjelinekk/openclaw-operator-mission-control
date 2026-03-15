@@ -6,12 +6,15 @@ import {
   useUpdatePerson,
   useDeletePerson,
   useAddPersonThread,
+  useLinkPersonTask,
   useUnlinkPersonTask,
   relativeTime,
   initials,
   type Person,
   type PersonThread,
 } from '@/hooks/api/people'
+import { useBoards } from '@/hooks/api/boards'
+import { useBoardTasks } from '@/hooks/api/tasks'
 import { useAgents } from '@/hooks/api/agents'
 import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
@@ -257,12 +260,77 @@ function ChannelHandles({ handles, onUpdate }: ChannelHandlesProps) {
   )
 }
 
+// --- link task form ---
+
+interface LinkTaskFormProps {
+  personId: string
+  boards: Array<{ id: string; name: string }>
+  linkedTaskIds: Set<string>
+  onDone: () => void
+}
+
+function LinkTaskForm({ personId, boards, linkedTaskIds, onDone }: LinkTaskFormProps) {
+  const [boardId, setBoardId] = useState(boards[0]?.id ?? '')
+  const [taskId, setTaskId] = useState('')
+  const { data: boardTasks = [] } = useBoardTasks(boardId)
+  const linkTask = useLinkPersonTask(personId)
+
+  const availableTasks = boardTasks.filter((t) => !linkedTaskIds.has(t.id))
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!taskId) return
+    linkTask.mutate(taskId, { onSuccess: onDone })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="border border-[#30363d] bg-[#0d1117] p-3 flex flex-col gap-2 mt-1">
+      <select
+        className="border border-[#30363d] bg-[#0d1117] px-2 py-1.5 text-xs text-[#e6edf3] outline-none focus:border-[#58a6ff] font-mono w-full"
+        value={boardId}
+        onChange={(e) => { setBoardId(e.target.value); setTaskId('') }}
+      >
+        {boards.map((b) => (
+          <option key={b.id} value={b.id}>{b.name}</option>
+        ))}
+      </select>
+      <select
+        className="border border-[#30363d] bg-[#0d1117] px-2 py-1.5 text-xs text-[#e6edf3] outline-none focus:border-[#58a6ff] font-mono w-full"
+        value={taskId}
+        onChange={(e) => setTaskId(e.target.value)}
+      >
+        <option value="">select task…</option>
+        {availableTasks.map((t) => (
+          <option key={t.id} value={t.id}>{t.title}</option>
+        ))}
+      </select>
+      <div className="flex gap-2 justify-end">
+        <button
+          type="button"
+          onClick={onDone}
+          className="border border-[#30363d] bg-[#21262d] px-2 py-1 text-xs text-[#e6edf3] hover:bg-[#30363d] transition-colors font-mono"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={!taskId || linkTask.isPending}
+          className="bg-[#1f6feb] border border-[#388bfd] px-2 py-1 text-xs font-medium text-white hover:bg-[#388bfd] disabled:opacity-50 transition-colors"
+        >
+          {linkTask.isPending ? 'Linking…' : 'Link'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 // --- main page ---
 
 function PersonDetailPage() {
   const { personId } = Route.useParams()
   const { data, isLoading, isError } = usePerson(personId)
   const { data: agents = [] } = useAgents()
+  const { data: allBoards = [] } = useBoards()
   const updatePerson = useUpdatePerson(personId)
   const deletePerson = useDeletePerson()
   const unlinkTask = useUnlinkPersonTask(personId)
@@ -271,6 +339,7 @@ function PersonDetailPage() {
   const [notesVal, setNotesVal] = useState<string | null>(null)
   const [contextVal, setContextVal] = useState<string | null>(null)
   const [showAddThread, setShowAddThread] = useState(false)
+  const [showLinkTask, setShowLinkTask] = useState(false)
   const [newTag, setNewTag] = useState('')
   const [addingTag, setAddingTag] = useState(false)
   const [newPriority, setNewPriority] = useState('')
@@ -627,17 +696,39 @@ function PersonDetailPage() {
 
           {/* linked tasks */}
           <div className="border border-[#30363d] bg-[#161b22] overflow-hidden">
-            <div className="border-b border-[#30363d] px-4 py-2">
+            <div className="border-b border-[#30363d] px-4 py-2 flex items-center justify-between">
               <span className="text-xs font-mono uppercase tracking-widest text-[#8b949e]">Linked Tasks</span>
+              <button
+                onClick={() => setShowLinkTask((v) => !v)}
+                className="inline-flex items-center gap-1 text-xs font-mono text-[#6e7681] hover:text-[#e6edf3] transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                link
+              </button>
             </div>
+            {showLinkTask && (
+              <div className="px-3 pb-2">
+                <LinkTaskForm
+                  personId={personId}
+                  boards={allBoards}
+                  linkedTaskIds={new Set(tasks.map(({ task }) => task?.id ?? '').filter(Boolean))}
+                  onDone={() => setShowLinkTask(false)}
+                />
+              </div>
+            )}
             <div className="flex flex-col divide-y divide-[#21262d]">
-              {tasks.length === 0 && (
+              {tasks.length === 0 && !showLinkTask && (
                 <p className="px-4 py-3 text-xs font-mono text-[#6e7681]">no tasks linked</p>
               )}
-              {tasks.map(({ task }) =>
+              {tasks.map(({ task, boardName }) =>
                 task ? (
                   <div key={task.id} className="px-4 py-2 flex items-center justify-between gap-2">
-                    <span className="text-xs text-[#e6edf3] truncate flex-1">{task.title}</span>
+                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                      <span className="text-xs text-[#e6edf3] truncate">{task.title}</span>
+                      {boardName && (
+                        <span className="text-xs font-mono text-[#6e7681] truncate">{boardName}</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <span className={cn('text-xs font-mono border px-1 py-0.5', TASK_STATUS_STYLES[task.status] ?? 'text-[#8b949e] border-[#30363d]')}>
                         {task.status}

@@ -37,3 +37,28 @@ export function useTriggerCron() {
     },
   })
 }
+
+export interface CreateCronInput {
+  name: string
+  schedule: string
+  agentId: string
+  command: string
+}
+
+export function useCreateCron() {
+  return useMutation({
+    mutationFn: (data: CreateCronInput) => api.post('api/cron', { json: data }).json<CronJob>(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cron'] })
+    },
+  })
+}
+
+export function useDeleteCron() {
+  return useMutation({
+    mutationFn: (jobId: string) => api.delete(`api/cron/${jobId}`).json<{ ok: true }>(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cron'] })
+    },
+  })
+}

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { X, Plus, Pencil, Check } from 'lucide-react'
-import { useTags, useCreateTag, useDeleteTag, type Tag } from '@/hooks/api/tags'
+import { useTags, useCreateTag, useDeleteTag, useUpdateTag, type Tag } from '@/hooks/api/tags'
 
 export const Route = createFileRoute('/tags')({
   component: TagsPage,
@@ -79,14 +79,16 @@ function CreateTagRow({ onDone }: { onDone: () => void }) {
 }
 
 function EditTagRow({ tag, onDone }: { tag: Tag; onDone: () => void }) {
+  const updateTag = useUpdateTag()
   const [name, setName] = useState(tag.name)
   const [color, setColor] = useState(tag.color.startsWith('#') ? tag.color : `#${tag.color}`)
   const [description, setDescription] = useState(tag.description ?? '')
 
-  // No update hook specified — submit as create replacement or just close
-  // For now just save via POST (idempotent upsert not specified, close for now)
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!name.trim()) return
+    const hex = color.startsWith('#') ? color.slice(1) : color
+    await updateTag.mutateAsync({ id: tag.id, name: name.trim(), color: hex })
     onDone()
   }
 
@@ -118,7 +120,11 @@ function EditTagRow({ tag, onDone }: { tag: Tag; onDone: () => void }) {
       </td>
       <td className="px-4 py-2">
         <div className="flex gap-2">
-          <button onClick={handleSubmit} className="p-1 text-[#3fb950] hover:text-[#56d364] transition-colors">
+          <button
+            onClick={handleSubmit}
+            disabled={!name.trim() || updateTag.isPending}
+            className="p-1 text-[#3fb950] hover:text-[#56d364] disabled:opacity-40 transition-colors"
+          >
             <Check className="w-4 h-4" />
           </button>
           <button onClick={onDone} className="p-1 text-[#6e7681] hover:text-[#e6edf3] transition-colors">

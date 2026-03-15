@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, queryClient } from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
+import { useToastStore } from '@/store/toast'
 import type { BoardSnapshot, Task } from './api/boards'
 
 function getBoardWsUrl(boardId: string, token: string | null): string {
@@ -58,8 +59,17 @@ export function useBoard(boardId: string) {
 
       ws.onmessage = (e) => {
         try {
-          const event = JSON.parse(e.data) as { type: string; task?: Task; taskId?: string }
+          const event = JSON.parse(e.data) as { type: string; task?: Task; taskId?: string; reason?: string }
           patchSnapshot(boardId, event)
+
+          const { addToast } = useToastStore.getState()
+          if (event.type === 'task.move.blocked' && event.reason) {
+            addToast(`Status change blocked: ${event.reason}`, 'error')
+          } else if (event.type === 'task.updated' && event.task?.outcome === 'failed') {
+            addToast(`Task failed: ${event.task.title}`, 'warning')
+          } else if (event.type === 'task.cancelled' && event.task) {
+            addToast(`Task cancelled: ${event.task.title}`, 'warning')
+          }
         } catch {
           // ignore malformed messages
         }

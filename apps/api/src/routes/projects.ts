@@ -73,6 +73,50 @@ projectsRouter.delete('/:id/tasks/:taskId', async (c) => {
   return c.json({ ok: true })
 })
 
+projectsRouter.post('/:id/kickoff', async (c) => {
+  const id = c.req.param('id')
+  const [project] = await db.select().from(projects).where(eq(projects.id, id))
+  if (!project) return c.json({ error: 'Not found' }, 404)
+
+  const projectTaskList = await db
+    .select({ pt: projectTasks, task: tasks })
+    .from(projectTasks)
+    .leftJoin(tasks, eq(projectTasks.taskId, tasks.id))
+    .where(eq(projectTasks.projectId, id))
+    .orderBy(asc(projectTasks.position))
+
+  if (projectTaskList.length === 0) {
+    return c.json({ error: 'Project has no tasks to kick off' }, 409)
+  }
+
+  await db.update(projects).set({ status: 'active', updatedAt: new Date() }).where(eq(projects.id, id))
+
+  return c.json({ project: { ...project, status: 'active' }, tasks: projectTaskList })
+})
+
+projectsRouter.patch('/:id/tasks/:taskId', zValidator('json', z.object({
+  executionMode: z.enum(['sequential', 'parallel']).optional(),
+  order: z.number().int().optional(),
+})), async (c) => {
+  const projectId = c.req.param('id')
+  const taskId = c.req.param('taskId')
+  const { executionMode, order } = c.req.valid('json')
+
+  const updates: Record<string, unknown> = {}
+  if (executionMode !== undefined) updates.executionMode = executionMode
+  if (order !== undefined) updates.position = order
+
+  if (Object.keys(updates).length === 0) return c.json({ error: 'No fields to update' }, 400)
+
+  const [updated] = await db
+    .update(projectTasks)
+    .set(updates)
+    .where(and(eq(projectTasks.projectId, projectId), eq(projectTasks.taskId, taskId)))
+    .returning()
+  if (!updated) return c.json({ error: 'Not found' }, 404)
+  return c.json(updated)
+})
+
 projectsRouter.get('/:id/progress', async (c) => {
   const id = c.req.param('id')
   const projectTaskList = await db

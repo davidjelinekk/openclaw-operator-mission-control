@@ -27,7 +27,18 @@ analyticsRouter.get('/summary', async (c) => {
     ? (result.totalCacheReadTokens / result.totalInputTokens) * 100
     : 0
 
-  return c.json({ ...result, cacheHitPct: Math.round(cacheHitPct * 10) / 10 })
+  let mostExpensiveAgent: { agentId: string; name: string; totalCostUsd: string } | null = null
+  const agentWhere = where
+  const [topAgent] = await db.select({
+    agentId: tokenEvents.agentId,
+    totalCostUsd: sql<string>`SUM(CAST(${tokenEvents.costUsd} AS NUMERIC))::text`,
+  }).from(tokenEvents).where(agentWhere).groupBy(tokenEvents.agentId).orderBy(sql`SUM(CAST(${tokenEvents.costUsd} AS NUMERIC)) DESC`).limit(1)
+
+  if (topAgent) {
+    mostExpensiveAgent = { agentId: topAgent.agentId, name: topAgent.agentId, totalCostUsd: topAgent.totalCostUsd }
+  }
+
+  return c.json({ ...result, cacheHitPct: Math.round(cacheHitPct * 10) / 10, mostExpensiveAgent })
 })
 
 analyticsRouter.get('/by-agent', async (c) => {
@@ -136,9 +147,52 @@ analyticsRouter.get('/task-outcomes', async (c) => {
   return c.json([...result])
 })
 
+analyticsRouter.get('/by-project', async (c) => {
+  const from = c.req.query('from')
+  const to = c.req.query('to')
+
+  let where = sql`${tokenEvents.projectId} IS NOT NULL`
+  if (from) where = sql`${where} AND ${tokenEvents.turnTimestamp} >= ${from}::timestamptz`
+  if (to) where = sql`${where} AND ${tokenEvents.turnTimestamp} <= ${to}::timestamptz`
+
+  const result = await db.select({
+    projectId: tokenEvents.projectId,
+    totalCostUsd: sql<string>`SUM(CAST(${tokenEvents.costUsd} AS NUMERIC))::text`,
+    inputTokens: sql<number>`SUM(${tokenEvents.inputTokens})::int`,
+    outputTokens: sql<number>`SUM(${tokenEvents.outputTokens})::int`,
+    turnCount: sql<number>`COUNT(*)::int`,
+  }).from(tokenEvents).where(where).groupBy(tokenEvents.projectId).orderBy(sql`SUM(CAST(${tokenEvents.costUsd} AS NUMERIC)) DESC`)
+
+  return c.json(result)
+})
+
 analyticsRouter.post('/ingest', async (c) => {
   await analyticsIngestWorker.run()
   return c.json({ ok: true })
+})
+
+analyticsRouter.get('/failed-tasks', async (c) => {
+  const start = c.req.query('start')
+  const end = c.req.query('end')
+  const boardId = c.req.query('boardId')
+
+  let where = sql`${tasks.outcome} = 'failed'`
+  if (start) where = sql`${where} AND ${tasks.completedAt} >= ${start}::timestamptz`
+  if (end) where = sql`${where} AND ${tasks.completedAt} <= ${end}::timestamptz`
+  if (boardId) where = sql`${where} AND ${tasks.boardId} = ${boardId}::uuid`
+
+  const rows = await db.execute(
+    sql`SELECT id AS "taskId", title, board_id AS "boardId", completed_at AS "completedAt", assigned_agent_id AS "assignedAgentId"
+        FROM tasks
+        WHERE ${where}
+        ORDER BY completed_at DESC NULLS LAST
+        LIMIT 20`
+  )
+
+  return c.json({
+    count: rows.length,
+    tasks: [...rows],
+  })
 })
 
 export default analyticsRouter

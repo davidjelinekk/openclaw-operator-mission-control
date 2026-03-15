@@ -125,7 +125,7 @@ router.post('/tasks/:taskId/planning/start', async (c) => {
     })
     .returning()
 
-  const callbackUrl = `http://localhost:${config.PORT}/plan/tasks/${taskId}/planning/agent?sid=${session.id}`
+  const callbackUrl = `${config.BASE_URL}/plan/tasks/${taskId}/planning/agent?sid=${session.id}`
   const prompt = `TASK PLANNING REQUEST
 
 Board: ${board.name}

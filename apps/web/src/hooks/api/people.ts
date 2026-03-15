@@ -61,10 +61,18 @@ export interface PersonThread {
   createdAt: string
 }
 
+export interface LinkedTask {
+  id: string
+  title: string
+  status: string
+  priority: string
+  boardId: string
+}
+
 export interface PersonDetail {
   person: Person
   threads: PersonThread[]
-  tasks: Array<{ task: { id: string; title: string; status: string; priority: string } | null }>
+  tasks: Array<{ task: LinkedTask | null; boardName: string | null }>
   projects: Array<{ project: { id: string; name: string; status: string; progressPct: number } | null }>
 }
 
@@ -130,5 +138,12 @@ export function useLinkPersonProject(personId: string) {
     mutationFn: (projectId: string) =>
       api.post(`api/people/${personId}/projects`, { json: { projectId } }).json<{ ok: boolean }>(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['people', personId] }),
+  })
+}
+
+export function usePeopleTasks(personId: string) {
+  return useQuery<Array<{ task: LinkedTask | null; boardName: string | null }>>({
+    queryKey: ['people', personId, 'tasks'],
+    queryFn: () => api.get(`api/people/${personId}/tasks`).json<Array<{ task: LinkedTask | null; boardName: string | null }>>(),
   })
 }

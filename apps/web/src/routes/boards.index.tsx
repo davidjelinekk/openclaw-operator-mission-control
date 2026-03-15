@@ -111,6 +111,14 @@ function BoardsPage() {
   const { data: boards, isLoading, isError } = useBoards()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
+  const [search, setSearch] = useState('')
+
+  const filteredBoards = boards
+    ? boards.filter((b) => {
+        const q = search.toLowerCase()
+        return b.name.toLowerCase().includes(q) || (b.description ?? '').toLowerCase().includes(q)
+      })
+    : boards
 
   return (
     <div className="space-y-6">
@@ -118,13 +126,21 @@ function BoardsPage() {
         <h1 className="font-mono text-[13px] font-semibold text-[#e6edf3] tracking-wide uppercase flex items-center gap-2">
           <span className="text-[#58a6ff]">~/</span>boards
         </h1>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#238636] hover:bg-[#2ea043] border border-[#2ea043] text-white font-mono text-[12px] transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New Board
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="search boards…"
+            className="bg-[#0d1117] border border-[#30363d] px-3 py-1.5 font-mono text-[12px] text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-[#58a6ff] transition-colors w-48"
+          />
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#238636] hover:bg-[#2ea043] border border-[#2ea043] text-white font-mono text-[12px] transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            New Board
+          </button>
+        </div>
       </div>
 
       {isLoading && (
@@ -141,17 +157,17 @@ function BoardsPage() {
         </div>
       )}
 
-      {boards && boards.length === 0 && (
+      {filteredBoards && filteredBoards.length === 0 && (
         <div className="py-20 flex flex-col items-center gap-2 text-[#6e7681]">
           <span className="font-mono text-[32px] opacity-20">[]</span>
-          <span className="font-mono text-[12px]">no entries found</span>
-          <span className="font-mono text-[11px] text-[#30363d]">— use the button above to create one —</span>
+          <span className="font-mono text-[12px]">{search ? 'no boards match' : 'no entries found'}</span>
+          {!search && <span className="font-mono text-[11px] text-[#30363d]">— use the button above to create one —</span>}
         </div>
       )}
 
-      {boards && boards.length > 0 && (
+      {filteredBoards && filteredBoards.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {boards.map((board) => (
+          {filteredBoards.map((board) => (
             <div
               key={board.id}
               onClick={() => navigate({ to: '/boards/$boardId', params: { boardId: board.id } })}

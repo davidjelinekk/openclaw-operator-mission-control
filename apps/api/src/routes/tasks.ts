@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { db } from '../db/client.js'
-import { tasks, taskDependencies, approvals, boards, activityEvents } from '../db/schema.js'
-import { eq, and, desc, asc, sql } from 'drizzle-orm'
+import { tasks, taskDependencies, approvals, boards, activityEvents, projects } from '../db/schema.js'
+import { eq, and, desc, asc, sql, count, type SQL } from 'drizzle-orm'
 import { CreateTaskSchema, UpdateTaskSchema } from '@oc-operator/shared-types'
 import { redis } from '../lib/redis.js'
 import { z } from 'zod'
@@ -16,10 +16,16 @@ export const tasksRouter = new Hono()
 tasksRouter.get('/', async (c) => {
   const boardId = c.req.query('boardId')
   const projectId = c.req.query('projectId')
+  const status = c.req.query('status')
+  const assignedAgentId = c.req.query('assignedAgentId')
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10) || 50, 200)
+  const offset = Math.max(parseInt(c.req.query('offset') ?? '0', 10) || 0, 0)
   let q = db.select().from(tasks).$dynamic()
   if (boardId) q = q.where(eq(tasks.boardId, boardId))
   if (projectId) q = q.where(eq(tasks.projectId, projectId))
-  const result = await q.orderBy(desc(tasks.createdAt))
+  if (status) q = q.where(eq(tasks.status, status))
+  if (assignedAgentId) q = q.where(eq(tasks.assignedAgentId, assignedAgentId))
+  const result = await q.orderBy(desc(tasks.createdAt)).limit(limit).offset(offset)
   return c.json(result)
 })
 
@@ -38,10 +44,20 @@ tasksRouter.get('/queue', async (c) => {
   const boardId = c.req.query('boardId')
   const agentId = c.req.query('agentId')
   const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10) || 10, 100)
+  const respectDeps = c.req.query('respectDeps') === 'true'
 
-  const conditions = [eq(tasks.status, 'inbox')]
+  const conditions: SQL[] = [eq(tasks.status, 'inbox')]
   if (boardId) conditions.push(eq(tasks.boardId, boardId))
   if (agentId) conditions.push(eq(tasks.assignedAgentId, agentId))
+  if (respectDeps) {
+    conditions.push(
+      sql`NOT EXISTS (
+        SELECT 1 FROM task_dependencies td
+        JOIN tasks dep ON dep.id = td.depends_on_task_id
+        WHERE td.task_id = ${tasks.id} AND dep.status != 'done'
+      )`
+    )
+  }
 
   const result = await db
     .select()
@@ -70,6 +86,25 @@ tasksRouter.post('/batch', zValidator('json', z.object({ tasks: z.array(CreateTa
     ),
   )
   return c.json(created, 201)
+})
+
+// Overdue tasks — status in inbox/in_progress/review with dueAt < now
+tasksRouter.get('/overdue', async (c) => {
+  const boardId = c.req.query('boardId')
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '20', 10) || 20, 100)
+
+  let q = db.select().from(tasks).$dynamic()
+  q = q.where(
+    and(
+      sql`${tasks.status} IN ('inbox', 'in_progress', 'review')`,
+      sql`${tasks.dueAt} IS NOT NULL AND ${tasks.dueAt} < NOW()`,
+      ...(boardId ? [eq(tasks.boardId, boardId)] : []),
+    )
+  )
+  q = q.orderBy(asc(tasks.dueAt)).limit(limit)
+
+  const result = await q
+  return c.json(result)
 })
 
 tasksRouter.get('/:id', async (c) => {
@@ -135,6 +170,17 @@ tasksRouter.patch('/:id', zValidator('json', UpdateTaskWithOutcomeSchema), async
   const [task] = await db.update(tasks).set(updates).where(eq(tasks.id, id)).returning()
   if (!task) return c.json({ error: 'Not found' }, 404)
   await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.updated', task }))
+
+  // Auto-update project progress when a task is marked done
+  if (data.status === 'done' && task.projectId) {
+    const [totalRow] = await db.select({ total: count() }).from(tasks).where(eq(tasks.projectId, task.projectId))
+    const [doneRow] = await db.select({ done: count() }).from(tasks).where(and(eq(tasks.projectId, task.projectId), eq(tasks.status, 'done')))
+    const total = totalRow?.total ?? 0
+    const done = doneRow?.done ?? 0
+    const progressPct = total > 0 ? Math.round((done / total) * 100) : 0
+    await db.update(projects).set({ progressPct, updatedAt: new Date() }).where(eq(projects.id, task.projectId))
+  }
+
   return c.json(task)
 })
 
@@ -182,6 +228,35 @@ tasksRouter.post(
     return c.json(note, 201)
   },
 )
+
+// Cancel task — sets status=abandoned, outcome=abandoned
+tasksRouter.post('/:id/cancel', zValidator('json', z.object({ reason: z.string().optional() })), async (c) => {
+  const id = c.req.param('id')
+  const { reason } = c.req.valid('json')
+
+  const [existing] = await db.select().from(tasks).where(eq(tasks.id, id))
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+  if (existing.status === 'done') return c.json({ error: 'Cannot cancel a completed task' }, 409)
+
+  const [task] = await db
+    .update(tasks)
+    .set({ status: 'abandoned', outcome: 'abandoned', updatedAt: new Date() })
+    .where(eq(tasks.id, id))
+    .returning()
+
+  await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.cancelled', task }))
+
+  if (reason) {
+    await db.insert(activityEvents).values({
+      taskId: id,
+      boardId: task.boardId,
+      eventType: 'task.note',
+      message: `Task cancelled: ${reason}`,
+    })
+  }
+
+  return c.json(task)
+})
 
 tasksRouter.delete('/:id', async (c) => {
   const id = c.req.param('id')

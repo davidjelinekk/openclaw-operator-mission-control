@@ -5,6 +5,8 @@ import { db } from '../db/client.js'
 import { approvals, boards, activityEvents } from '../db/schema.js'
 import { eq, and, desc, gte } from 'drizzle-orm'
 import { gatewayClient } from '../services/gateway/client.js'
+import { getSessionUser } from '../lib/auth.js'
+import { config } from '../config.js'
 
 const router = new Hono()
 
@@ -105,6 +107,33 @@ router.delete('/:id', async (c) => {
 
 // SSE stream for approvals by board
 router.get('/boards/:boardId/stream', async (c) => {
+  // Accept token from Authorization header (preferred) or query param (backward compat for agents)
+  let authenticated = false
+  const authHeader = c.req.header('Authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7)
+    if (token === config.OPERATOR_TOKEN) {
+      authenticated = true
+    } else {
+      const user = await getSessionUser(token)
+      if (user) authenticated = true
+    }
+  }
+  if (!authenticated) {
+    const queryToken = c.req.query('token')
+    if (queryToken) {
+      if (queryToken === config.OPERATOR_TOKEN) {
+        authenticated = true
+      } else {
+        const user = await getSessionUser(queryToken)
+        if (user) authenticated = true
+      }
+    }
+  }
+  if (!authenticated) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
   const boardId = c.req.param('boardId')
   const sinceParam = c.req.query('since')
   let since = sinceParam ? new Date(sinceParam) : new Date(Date.now() - 60_000)

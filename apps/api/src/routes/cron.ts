@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { gatewayClient } from '../services/gateway/client.js'
 import { redis } from '../lib/redis.js'
 import { readFileSync } from 'node:fs'
@@ -104,6 +106,40 @@ cronRouter.get('/', async (c) => {
 
   await redis.set('cron:merged', JSON.stringify(merged), 'EX', 60)
   return c.json(merged)
+})
+
+const createCronSchema = z.object({
+  name: z.string().min(1),
+  schedule: z.string().min(1),
+  agentId: z.string().min(1),
+  command: z.string().min(1),
+})
+
+cronRouter.post('/', zValidator('json', createCronSchema), async (c) => {
+  const body = c.req.valid('json')
+  try {
+    const result = await gatewayClient.call('cron.create', {
+      name: body.name,
+      schedule: { kind: 'cron', expr: body.schedule },
+      agentId: body.agentId,
+      command: body.command,
+    })
+    await redis.del('cron:merged')
+    return c.json(result, 201)
+  } catch (err) {
+    return c.json({ ok: false, error: String(err) }, 502)
+  }
+})
+
+cronRouter.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+  try {
+    await gatewayClient.call('cron.delete', { id })
+    await redis.del('cron:merged')
+    return c.json({ ok: true })
+  } catch (err) {
+    return c.json({ ok: false, error: String(err) }, 502)
+  }
 })
 
 cronRouter.post('/:id/run', async (c) => {

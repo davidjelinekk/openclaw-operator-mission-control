@@ -2,15 +2,16 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { gatewayClient } from '../services/gateway/client.js'
+import { config } from '../config.js'
 
 export const gatewayRouter = new Hono()
 
 gatewayRouter.get('/status', async (c) => {
   try {
     const health = await gatewayClient.call('health')
-    return c.json({ ok: true, connected: gatewayClient.isConnected(), health })
+    return c.json({ ok: true, connected: gatewayClient.isConnected(), health, gatewayUrl: config.GATEWAY_URL })
   } catch {
-    return c.json({ ok: false, connected: gatewayClient.isConnected() })
+    return c.json({ ok: false, connected: gatewayClient.isConnected(), gatewayUrl: config.GATEWAY_URL })
   }
 })
 

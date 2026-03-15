@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/organisms/Sidebar'
 import { Topbar } from '@/components/organisms/Topbar'
 import { useMe } from '@/hooks/api/auth'
 import { useAuthStore } from '@/store/auth'
+import { ToastContainer } from '@/components/organisms/ToastContainer'
 
 export const Route = createRootRoute({
   beforeLoad: ({ location }) => {
@@ -50,6 +51,7 @@ function MainLayout() {
           <Outlet />
         </main>
       </div>
+      <ToastContainer />
     </div>
   )
 }
