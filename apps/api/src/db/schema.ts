@@ -384,6 +384,37 @@ export const sessions = pgTable(
   ],
 )
 
+// ---- webhooks ----
+export const webhooks = pgTable('webhooks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  url: text('url').notNull(),
+  secret: text('secret'),
+  events: jsonb('events').$type<string[]>().notNull(),
+  boardId: uuid('board_id').references(() => boards.id, { onDelete: 'cascade' }),
+  active: boolean('active').notNull().default(true),
+  description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ---- task templates ----
+export const taskTemplates = pgTable('task_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  description: text('description'),
+  boardId: uuid('board_id').references(() => boards.id, { onDelete: 'set null' }),
+  template: jsonb('template').$type<{
+    title: string
+    description?: string
+    priority?: string
+    assignedAgentId?: string
+    tags?: string[]
+  }>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ---- skill packs ----
 export const skillPacks = pgTable('skill_packs', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -9,6 +9,7 @@ import { config } from '../config.js'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { dispatchWebhookEvent } from '../lib/webhookDispatcher.js'
 
 function getKnownAgentIds(): Set<string> {
   try {
@@ -76,6 +77,7 @@ tasksRouter.post('/', zValidator('json', CreateTaskSchema), async (c) => {
     dueAt: data.dueAt ? new Date(data.dueAt) : undefined,
   }).returning()
   await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.created', task }))
+  dispatchWebhookEvent({ type: 'task.created', boardId: task.boardId, payload: task })
   return c.json(task, 201)
 })
 
@@ -210,6 +212,7 @@ tasksRouter.patch('/:id', zValidator('json', UpdateTaskWithOutcomeSchema), async
   const [task] = await db.update(tasks).set(updates).where(eq(tasks.id, id)).returning()
   if (!task) return c.json({ error: 'Not found' }, 404)
   await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.updated', task }))
+  dispatchWebhookEvent({ type: 'task.updated', boardId: task.boardId, payload: task })
 
   // Auto-update project progress when a task is marked done
   if (data.status === 'done' && task.projectId) {
@@ -306,6 +309,7 @@ tasksRouter.post('/:id/cancel', zValidator('json', z.object({ reason: z.string()
     .returning()
 
   await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.cancelled', task }))
+  dispatchWebhookEvent({ type: 'task.cancelled', boardId: task.boardId, payload: task })
 
   if (reason) {
     await db.insert(activityEvents).values({
