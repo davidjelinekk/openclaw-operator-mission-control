@@ -5,7 +5,26 @@ import { tasks, taskDependencies, approvals, boards, activityEvents, projects } 
 import { eq, and, desc, asc, sql, count, type SQL } from 'drizzle-orm'
 import { CreateTaskSchema, UpdateTaskSchema } from '@oc-operator/shared-types'
 import { redis } from '../lib/redis.js'
+import { config } from '../config.js'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { z } from 'zod'
+
+function getKnownAgentIds(): Set<string> {
+  try {
+    const cfg = JSON.parse(readFileSync(join(config.OPENCLAW_HOME, 'openclaw.json'), 'utf-8'))
+    const list: Array<{ id?: string }> = cfg?.agents?.list ?? []
+    return new Set(list.map((a) => a.id).filter(Boolean) as string[])
+  } catch {
+    return new Set()
+  }
+}
+
+function parseMentions(message: string, knownAgents: Set<string>): string[] {
+  const matches = message.match(/@([\w-]+)/g)
+  if (!matches) return []
+  return [...new Set(matches.map((m) => m.slice(1)).filter((id) => knownAgents.has(id)))]
+}
 
 const UpdateTaskWithOutcomeSchema = UpdateTaskSchema.extend({
   outcome: z.enum(['success', 'failed', 'partial', 'abandoned']).optional(),
@@ -246,6 +265,27 @@ tasksRouter.post(
       .insert(activityEvents)
       .values({ taskId, boardId: task.boardId, agentId, eventType: 'task.note', message, metadata })
       .returning()
+
+    // @mention routing: create task.mention events for referenced agents
+    const mentioned = parseMentions(message, getKnownAgentIds())
+    for (const mentionedAgentId of mentioned) {
+      await db.insert(activityEvents).values({
+        taskId,
+        boardId: task.boardId,
+        agentId: mentionedAgentId,
+        eventType: 'task.mention',
+        message: `Mentioned by ${agentId ?? 'unknown'}: ${message.slice(0, 200)}`,
+        metadata: { mentionedBy: agentId, noteId: note.id },
+      })
+      await redis.publish(`board:${task.boardId}`, JSON.stringify({
+        type: 'task.mention',
+        taskId,
+        mentionedAgentId,
+        mentionedBy: agentId,
+        noteId: note.id,
+      }))
+    }
+
     return c.json(note, 201)
   },
 )
