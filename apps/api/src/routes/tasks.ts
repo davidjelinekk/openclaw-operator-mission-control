@@ -11,7 +11,19 @@ const UpdateTaskWithOutcomeSchema = UpdateTaskSchema.extend({
   outcome: z.enum(['success', 'failed', 'partial', 'abandoned']).optional(),
 })
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export const tasksRouter = new Hono()
+
+// Validate :id param is a proper UUID before hitting Postgres
+const NAMED_ROUTES = new Set(['queue', 'batch', 'overdue'])
+tasksRouter.use('/:id{.+}', async (c, next) => {
+  const id = c.req.param('id')
+  if (!id || NAMED_ROUTES.has(id) || UUID_RE.test(id)) {
+    return next()
+  }
+  return c.json({ error: 'Invalid task ID format' }, 400)
+})
 
 tasksRouter.get('/', async (c) => {
   const boardId = c.req.query('boardId')
