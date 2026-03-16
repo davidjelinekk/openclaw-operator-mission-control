@@ -6,6 +6,7 @@ export const CreatePersonSchema = z.object({
   name: z.string().min(1),
   email: z.string().email().optional(),
   phone: z.string().optional(),
+  source: PersonSourceSchema.optional(),
   role: z.string().optional(),
   relationship: z.string().optional(),
   priorities: z.array(z.string()).default([]),

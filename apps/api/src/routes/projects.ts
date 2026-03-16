@@ -5,6 +5,7 @@ import { projects, projectTasks, projectTaskDeps, tasks } from '../db/schema.js'
 import { eq, and, desc, asc } from 'drizzle-orm'
 import { CreateProjectSchema, UpdateProjectSchema } from '@oc-operator/shared-types'
 import { z } from 'zod'
+import { initProjectWorkspace } from '../lib/projectWorkspace.js'
 
 export const projectsRouter = new Hono()
 
@@ -15,10 +16,19 @@ projectsRouter.get('/', async (c) => {
 
 projectsRouter.post('/', zValidator('json', CreateProjectSchema), async (c) => {
   const data = c.req.valid('json')
-  const [project] = await db.insert(projects).values({
+  let [project] = await db.insert(projects).values({
     ...data,
     targetDate: data.targetDate ? new Date(data.targetDate) : undefined,
   }).returning()
+
+  let workspacePath: string | null = null
+  try {
+    workspacePath = await initProjectWorkspace(project)
+    ;[project] = await db.update(projects).set({ workspacePath }).where(eq(projects.id, project.id)).returning()
+  } catch (err) {
+    console.error('[workspace] init failed:', err)
+  }
+
   return c.json(project, 201)
 })
 
@@ -129,6 +139,15 @@ projectsRouter.get('/:id/progress', async (c) => {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   await db.update(projects).set({ progressPct: pct, updatedAt: new Date() }).where(eq(projects.id, id))
   return c.json({ total, done, progressPct: pct })
+})
+
+projectsRouter.post('/:id/workspace', async (c) => {
+  const id = c.req.param('id')
+  const [project] = await db.select().from(projects).where(eq(projects.id, id))
+  if (!project) return c.json({ error: 'Not found' }, 404)
+  const workspacePath = await initProjectWorkspace(project)
+  await db.update(projects).set({ workspacePath, updatedAt: new Date() }).where(eq(projects.id, id))
+  return c.json({ ok: true, workspacePath })
 })
 
 export default projectsRouter

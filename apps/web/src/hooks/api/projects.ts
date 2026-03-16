@@ -9,6 +9,7 @@ export interface Project {
   progressPct: number
   targetDate?: string
   orchestratorAgentId?: string
+  workspacePath?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -109,6 +110,17 @@ export function useUpdateProjectTask(projectId: string) {
       api.patch(`api/projects/${projectId}/tasks/${taskId}`, { json: { executionMode } }).json<ProjectTask>(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', projectId] })
+    },
+  })
+}
+
+export function useInitProjectWorkspace(projectId: string) {
+  return useMutation({
+    mutationFn: () =>
+      api.post(`api/projects/${projectId}/workspace`).json<{ ok: boolean; workspacePath: string }>(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
   })
 }

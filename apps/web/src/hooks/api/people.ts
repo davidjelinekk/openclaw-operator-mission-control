@@ -86,7 +86,7 @@ export function usePerson(id: string) {
 
 export function useCreatePerson() {
   return useMutation({
-    mutationFn: (data: { name: string; email?: string; phone?: string; source?: Person['source']; externalId?: string; notes?: string; tags?: string[] }) =>
+    mutationFn: (data: Omit<Partial<Person>, 'id' | 'createdAt' | 'updatedAt' | 'threadCount' | 'lastActiveAt'> & { name: string }) =>
       api.post('api/people', { json: data }).json<Person>(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['people'] }),
   })

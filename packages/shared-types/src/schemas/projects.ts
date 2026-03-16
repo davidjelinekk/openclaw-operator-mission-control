@@ -14,6 +14,7 @@ export const ProjectSchema = z.object({
   progressPct: z.number().int().min(0).max(100),
   targetDate: z.string().datetime().nullable(),
   orchestratorAgentId: z.string().nullable(),
+  workspacePath: z.string().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })

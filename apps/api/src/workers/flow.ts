@@ -2,6 +2,7 @@ import { db } from '../db/client.js'
 import { agentFlowEdges, tasks, boards } from '../db/schema.js'
 import { redis } from '../lib/redis.js'
 import { gte, isNotNull, and, eq, notExists } from 'drizzle-orm'
+import { workerRegistry } from '../lib/workerRegistry.js'
 
 // Derive dispatch edges from tasks that recently became in_progress.
 // Runs every 2 minutes; uses a 6-minute lookback so no transition is missed
@@ -26,7 +27,10 @@ async function runFlowTail(): Promise<void> {
     ))
     .limit(100)
 
-  if (dispatchedTasks.length === 0) return
+  if (dispatchedTasks.length === 0) {
+    workerRegistry.record('flowTail', true)
+    return
+  }
 
   const toInsert: typeof agentFlowEdges.$inferInsert[] = []
 
@@ -52,7 +56,10 @@ async function runFlowTail(): Promise<void> {
     })
   }
 
-  if (toInsert.length === 0) return
+  if (toInsert.length === 0) {
+    workerRegistry.record('flowTail', true)
+    return
+  }
 
   const inserted = await db.insert(agentFlowEdges)
     .values(toInsert)
@@ -62,8 +69,17 @@ async function runFlowTail(): Promise<void> {
   if (inserted.length > 0) {
     await redis.publish('flow:edges', JSON.stringify({ edges: inserted }))
   }
+
+  workerRegistry.record('flowTail', true)
 }
 
 export const flowTailWorker = {
-  run: runFlowTail,
+  run: async () => {
+    try {
+      await runFlowTail()
+    } catch (err) {
+      workerRegistry.record('flowTail', false)
+      throw err
+    }
+  },
 }

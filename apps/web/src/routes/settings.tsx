@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Key, CheckCircle, AlertCircle, User, Lock, Wifi, WifiOff } from 'lucide-react'
+import { Key, CheckCircle, AlertCircle, User, Lock, Wifi, WifiOff, Activity, Eye, EyeOff, Copy } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { useMe, useChangePassword } from '@/hooks/api/auth'
+import { useSystemStatus } from '@/hooks/api/system'
 import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/settings')({
@@ -13,6 +14,19 @@ function SettingsPage() {
   const { token } = useAuthStore()
   const { data: me } = useMe()
   const changePassword = useChangePassword()
+  const { data: systemStatus } = useSystemStatus()
+
+  // Operator token visibility
+  const [showFullToken, setShowFullToken] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  function copyToken() {
+    if (!systemStatus?.env.operatorTokenFull) return
+    navigator.clipboard.writeText(systemStatus.env.operatorTokenFull).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   // Gateway connection test
   const [gwStatus, setGwStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
@@ -224,6 +238,89 @@ function SettingsPage() {
           >
             {gwStatus === 'testing' ? 'testing…' : 'test gateway'}
           </button>
+        </div>
+      </section>
+
+      {/* System Health */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Activity className="h-3.5 w-3.5 text-[#58a6ff]" />
+          <span className="font-mono text-xs text-[#8b949e] uppercase tracking-widest">system health</span>
+        </div>
+        <div className="border border-[#30363d] bg-[#161b22] p-4 space-y-2">
+          {(['db', 'redis', 'gateway'] as const).map((svc) => {
+            const s = systemStatus?.[svc]
+            const ok = s?.ok
+            const latency = svc !== 'gateway' && s && 'latencyMs' in s ? s.latencyMs : undefined
+            return (
+              <div key={svc} className="flex items-center gap-3">
+                <span className="font-mono text-[11px] text-[#6e7681] w-16">{svc}</span>
+                <span className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                  s == null ? 'bg-[#484f58]' : ok ? 'bg-[#3fb950]' : 'bg-[#f85149]'
+                }`} />
+                <span className={`font-mono text-[11px] ${
+                  s == null ? 'text-[#6e7681]' : ok ? 'text-[#3fb950]' : 'text-[#f85149]'
+                }`}>
+                  {s == null ? 'loading…' : ok ? 'ok' : 'error'}
+                </span>
+                {latency != null && (
+                  <span className="font-mono text-[10px] text-[#6e7681] border border-[#30363d] px-1.5 py-0.5">
+                    {latency}ms
+                  </span>
+                )}
+              </div>
+            )
+          })}
+          <div className="flex items-center gap-3 pt-1 border-t border-[#21262d] mt-2">
+            <span className="font-mono text-[11px] text-[#6e7681] w-16">flow</span>
+            {(() => {
+              const w = systemStatus?.workers?.['flowTail']
+              if (!w) return <span className="font-mono text-[11px] text-[#6e7681]">never</span>
+              const ago = w.lastRunAt ? Math.round((Date.now() - new Date(w.lastRunAt).getTime()) / 1000) : null
+              const label = ago == null ? 'never' : ago < 60 ? `${ago}s ago` : `${Math.round(ago / 60)}m ago`
+              return (
+                <>
+                  <span className={`h-2 w-2 rounded-full flex-shrink-0 ${w.ok ? 'bg-[#3fb950]' : 'bg-[#f85149]'}`} />
+                  <span className="font-mono text-[11px] text-[#8b949e]">{label}</span>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      </section>
+
+      {/* Operator Token */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Key className="h-3.5 w-3.5 text-[#58a6ff]" />
+          <span className="font-mono text-xs text-[#8b949e] uppercase tracking-widest">operator token</span>
+        </div>
+        <div className="border border-[#30363d] bg-[#161b22] p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <code className="font-mono text-[12px] text-[#e6edf3] flex-1 break-all">
+              {showFullToken
+                ? (systemStatus?.env.operatorTokenFull ?? '—')
+                : (systemStatus?.env.operatorTokenPrefix ?? '…')}
+            </code>
+            <button
+              onClick={() => setShowFullToken((v) => !v)}
+              className="p-1.5 text-[#6e7681] hover:text-[#e6edf3] transition-colors flex-shrink-0"
+              title={showFullToken ? 'Hide token' : 'Show full token'}
+            >
+              {showFullToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={copyToken}
+              className="p-1.5 text-[#6e7681] hover:text-[#e6edf3] transition-colors flex-shrink-0"
+              title="Copy token"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            {copied && <span className="font-mono text-[10px] text-[#3fb950]">copied!</span>}
+          </div>
+          <p className="font-mono text-[10px] text-[#6e7681]">
+            Agents authenticate using <code className="text-[#a5a0ff]">Authorization: Bearer &lt;token&gt;</code>
+          </p>
         </div>
       </section>
 

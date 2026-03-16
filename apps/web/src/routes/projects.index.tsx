@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Plus, FolderKanban } from 'lucide-react'
+import { Plus, FolderKanban, Folder, FolderOpen } from 'lucide-react'
 import { AgentChip } from '@/components/atoms/AgentChip'
 import { useProjects, useCreateProject, type Project } from '@/hooks/api/projects'
 import { useAgents } from '@/hooks/api/agents'
@@ -58,7 +58,7 @@ function ProgressRing({ pct }: { pct: number }) {
 function SkeletonRow() {
   return (
     <tr className="border-b border-[#21262d]">
-      {[1, 2, 3, 4, 5].map((i) => (
+      {[1, 2, 3, 4, 5, 6].map((i) => (
         <td key={i} className="px-4 py-3">
           <div className="h-4 bg-[#21262d] animate-pulse" style={{ width: `${60 + i * 10}%` }} />
         </td>
@@ -199,6 +199,7 @@ function ProjectsPage() {
               <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#8b949e]">Progress</th>
               <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#8b949e]">Target Date</th>
               <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#8b949e]">Orchestrator</th>
+              <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#8b949e] w-10" title="Workspace"></th>
             </tr>
           </thead>
           <tbody>
@@ -206,7 +207,7 @@ function ProjectsPage() {
 
             {!isLoading && projects?.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-16 text-center">
+                <td colSpan={6} className="px-4 py-16 text-center">
                   <div className="flex flex-col items-center gap-3 text-[#6e7681]">
                     <FolderKanban className="h-10 w-10 opacity-40" />
                     <p className="text-sm">No projects yet. Create one to get started.</p>
@@ -247,6 +248,13 @@ function ProjectsPage() {
                         <AgentChip emoji={agent.emoji ?? '🤖'} name={agent.name} online={agent.status === 'online'} />
                       ) : (
                         <span className="text-[#6e7681]">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3" title={project.workspacePath ?? 'No workspace'}>
+                      {project.workspacePath ? (
+                        <FolderOpen className="h-4 w-4 text-[#58a6ff]" />
+                      ) : (
+                        <Folder className="h-4 w-4 text-[#30363d]" />
                       )}
                     </td>
                   </tr>

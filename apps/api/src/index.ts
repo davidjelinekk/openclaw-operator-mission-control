@@ -29,6 +29,7 @@ import taskPlanningRouter, { taskPlanningCallbackRouter } from './routes/task-pl
 import skillPacksRouter from './routes/skill-packs.js'
 import authRouter from './routes/auth.js'
 import searchRouter from './routes/search.js'
+import systemRouter from './routes/system.js'
 import { createBoardWsHandler } from './ws/board.js'
 import { createFlowWsHandler } from './ws/flow.js'
 import { analyticsIngestWorker } from './workers/analytics.js'
@@ -69,6 +70,7 @@ app.route('/api/custom-fields', customFieldsRouter)
 app.route('/api', taskPlanningRouter)
 app.route('/api/skill-packs', skillPacksRouter)
 app.route('/api/search', searchRouter)
+app.route('/api/system', systemRouter)
 
 app.get('/health', (c) => c.json({ ok: true, version: '1.0.0' }))
 

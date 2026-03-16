@@ -70,7 +70,7 @@ function timeInStatus(task: Task): { label: string; warn: boolean } | null {
 }
 
 export function KanbanCard({ task, agents, isDragging, onClick }: KanbanCardProps) {
-  const priority = priorityBadge[task.priority]
+  const priority = priorityBadge[task.priority as Task['priority']] ?? priorityBadge.medium
   const assignedAgent = task.assignedAgentId ? agents?.find((a) => a.id === task.assignedAgentId) : undefined
   const dueDateInfo = task.dueDate ? formatRelativeDate(task.dueDate) : null
   const outcome = task.outcome ? outcomeBadge[task.outcome] : null

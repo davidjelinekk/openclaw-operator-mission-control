@@ -69,7 +69,15 @@
       "Bash(lsof -p 35014 -a 2>/dev/null | head -3; ps -p 35014 -o pid,command | tail -1\nlsof -p 38198 -a 2>/dev/null | head -3; ps -p 38198 -o pid,command | tail -1)",
       "Bash(do echo:*)",
       "Read(//private/tmp/claude-501/-Users-jerrymefsil-oc-operator/tasks/**)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"SELECT id, name, LEFT\\(notes, 300\\), role, relationship FROM people LIMIT 5;\" 2>&1)",
+      "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"\nSELECT \n  name,\n  role IS NOT NULL as has_role,\n  relationship IS NOT NULL as has_relationship,\n  context IS NOT NULL as has_context,\n  priorities::text != '[]' as has_priorities,\n  channel_handles::text != '{}' as has_channel_handles,\n  notes IS NOT NULL as has_notes\nFROM people\nORDER BY name\nLIMIT 20;\" 2>&1)",
+      "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"SELECT name, role IS NOT NULL as has_role, relationship IS NOT NULL as has_rel, context IS NOT NULL as has_ctx, priorities::text as prio, channel_handles::text as ch FROM people ORDER BY name LIMIT 15;\" 2>&1)",
+      "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"\nSELECT name, channel_handles::text, LEFT\\(notes, 500\\)\nFROM people\nWHERE notes LIKE '%CHANNEL%'\nORDER BY name;\" 2>&1)",
+      "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"\nSELECT name, \n  context IS NULL AS ctx_null, \n  role IS NULL AS role_null,\n  priorities::text = '[]' AS prio_empty,\n  channel_handles::text = '{}' AS ch_empty,\n  notes IS NOT NULL as has_notes\nFROM people\nWHERE context IS NULL OR role IS NULL OR priorities::text = '[]'\nORDER BY name;\" 2>&1)",
+      "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"SELECT name, role IS NULL as no_role, relationship IS NULL as no_rel, context IS NULL as no_ctx FROM people ORDER BY name;\" 2>&1)",
+      "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"SELECT name, email, notes FROM people WHERE name = 'Roman Kucher';\" 2>&1)",
+      "Bash(bash ~/.openclaw/workspace-gateway-835ce717-7e37-45fa-82eb-be06f329eead/dispatch_runner.sh 2>&1)"
     ]
   }
 }

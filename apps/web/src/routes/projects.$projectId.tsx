@@ -10,7 +10,7 @@ import ReactFlow, {
 import type { Node, Edge } from 'reactflow'
 import 'reactflow/dist/style.css'
 import dagre from '@dagrejs/dagre'
-import { ArrowLeft, Play, Loader2, Plus, X, Search } from 'lucide-react'
+import { ArrowLeft, Play, Loader2, Plus, X, Search, Folder, Copy, Check } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { AgentChip } from '@/components/atoms/AgentChip'
@@ -21,6 +21,7 @@ import {
   useKickoffProject,
   useAddProjectTask,
   useRemoveProjectTask,
+  useInitProjectWorkspace,
   type Project,
   type ProjectTask,
   type Task,
@@ -194,6 +195,64 @@ function ProgressRing({ pct, size = 64 }: { pct: number; size?: number }) {
         strokeLinecap="round"
       />
     </svg>
+  )
+}
+
+// --- workspace card ---
+
+function WorkspaceCard({ projectId, workspacePath }: { projectId: string; workspacePath?: string | null }) {
+  const initWorkspace = useInitProjectWorkspace(projectId)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    if (!workspacePath) return
+    navigator.clipboard.writeText(workspacePath).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  const displayPath = workspacePath
+    ? workspacePath.replace(/^\/Users\/[^/]+/, '~')
+    : null
+
+  return (
+    <div className="border border-[#30363d] bg-[#161b22] p-4 flex flex-col gap-3">
+      <p className="text-xs font-medium uppercase tracking-wider text-[#8b949e]">Workspace</p>
+      {workspacePath ? (
+        <>
+          <div className="flex items-start gap-2">
+            <code className="flex-1 text-xs font-mono text-[#e6edf3] break-all leading-relaxed">
+              {displayPath}
+            </code>
+            <button
+              onClick={handleCopy}
+              className="flex-shrink-0 p-1 text-[#6e7681] hover:text-[#e6edf3] transition-colors"
+              title="Copy path"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-[#3fb950]" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          <p className="text-xs text-[#6e7681]">BRIEF.md · MEMORY.md · CONTEXT.md · TOOLS.md</p>
+        </>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-[#6e7681]">No workspace initialized.</p>
+          <button
+            onClick={() => initWorkspace.mutate()}
+            disabled={initWorkspace.isPending}
+            className="inline-flex items-center justify-center gap-1.5 border border-[#30363d] bg-[#21262d] px-3 py-1.5 text-xs text-[#e6edf3] hover:bg-[#30363d] disabled:opacity-40 transition-colors"
+          >
+            {initWorkspace.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Folder className="h-3.5 w-3.5" />
+            )}
+            {initWorkspace.isPending ? 'Initializing…' : 'Initialize'}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -455,6 +514,9 @@ function ProjectDetailPage() {
               {kickoff.isPending ? 'Starting…' : 'Kickoff'}
             </button>
           </div>
+
+          {/* Workspace */}
+          <WorkspaceCard projectId={projectId} workspacePath={project.workspacePath} />
 
           {/* Task list */}
           <div className="border border-[#30363d] bg-[#161b22] overflow-hidden">

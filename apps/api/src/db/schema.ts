@@ -52,6 +52,7 @@ export const projects = pgTable('projects', {
   progressPct: smallint('progress_pct').notNull().default(0),
   targetDate: timestamp('target_date', { withTimezone: true }),
   orchestratorAgentId: text('orchestrator_agent_id'),
+  workspacePath: text('workspace_path'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
