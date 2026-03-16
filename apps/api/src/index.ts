@@ -3,7 +3,6 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { serveStatic } from '@hono/node-server/serve-static'
-import { parse } from 'node:url'
 import { config } from './config.js'
 import { authMiddleware, validateWsToken, seedAdmin } from './lib/auth.js'
 import { redis, redisSub } from './lib/redis.js'
@@ -115,8 +114,9 @@ async function start(): Promise<void> {
 
   // Attach WebSocket upgrade handler
   server.on('upgrade', async (req, socket, head) => {
-    const { pathname, query } = parse(req.url ?? '', true)
-    const token = (query['token'] as string | undefined)
+    const url = new URL(req.url ?? '', `http://localhost:${config.PORT}`)
+    const pathname = url.pathname
+    const token = url.searchParams.get('token')
       ?? req.headers['authorization']?.replace('Bearer ', '')
 
     const isValid = await validateWsToken(token ?? null)

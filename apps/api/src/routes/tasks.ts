@@ -17,7 +17,7 @@ export const tasksRouter = new Hono()
 
 // Validate :id param is a proper UUID before hitting Postgres
 const NAMED_ROUTES = new Set(['queue', 'batch', 'overdue'])
-tasksRouter.use('/:id{.+}', async (c, next) => {
+tasksRouter.use('/:id/:rest{.*}?', async (c, next) => {
   const id = c.req.param('id')
   if (!id || NAMED_ROUTES.has(id) || UUID_RE.test(id)) {
     return next()
@@ -32,12 +32,21 @@ tasksRouter.get('/', async (c) => {
   const assignedAgentId = c.req.query('assignedAgentId')
   const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10) || 50, 200)
   const offset = Math.max(parseInt(c.req.query('offset') ?? '0', 10) || 0, 0)
-  let q = db.select().from(tasks).$dynamic()
-  if (boardId) q = q.where(eq(tasks.boardId, boardId))
-  if (projectId) q = q.where(eq(tasks.projectId, projectId))
-  if (status) q = q.where(eq(tasks.status, status))
-  if (assignedAgentId) q = q.where(eq(tasks.assignedAgentId, assignedAgentId))
-  const result = await q.orderBy(desc(tasks.createdAt)).limit(limit).offset(offset)
+
+  const conditions: SQL[] = []
+  if (boardId) conditions.push(eq(tasks.boardId, boardId))
+  if (projectId) conditions.push(eq(tasks.projectId, projectId))
+  if (status) conditions.push(eq(tasks.status, status))
+  if (assignedAgentId) conditions.push(eq(tasks.assignedAgentId, assignedAgentId))
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined
+
+  const [result, [{ total }]] = await Promise.all([
+    db.select().from(tasks).where(where).orderBy(desc(tasks.createdAt)).limit(limit).offset(offset),
+    db.select({ total: count() }).from(tasks).where(where),
+  ])
+
+  c.header('X-Total-Count', String(total))
   return c.json(result)
 })
 
@@ -291,6 +300,20 @@ tasksRouter.post('/:id/deps', zValidator('json', z.object({ dependsOnTaskId: z.s
   const taskId = c.req.param('id')
   const { dependsOnTaskId } = c.req.valid('json')
   if (taskId === dependsOnTaskId) return c.json({ error: 'Self-dependency not allowed' }, 400)
+
+  // Cycle detection: walk the dependency chain from dependsOnTaskId to see if it reaches taskId
+  const visited = new Set<string>()
+  const queue = [dependsOnTaskId]
+  while (queue.length > 0) {
+    const current = queue.pop()!
+    if (current === taskId) return c.json({ error: 'Circular dependency detected' }, 409)
+    if (visited.has(current)) continue
+    visited.add(current)
+    const upstream = await db.select({ dep: taskDependencies.dependsOnTaskId })
+      .from(taskDependencies).where(eq(taskDependencies.taskId, current))
+    for (const { dep } of upstream) queue.push(dep)
+  }
+
   await db.insert(taskDependencies).values({ taskId, dependsOnTaskId }).onConflictDoNothing()
   return c.json({ ok: true }, 201)
 })
