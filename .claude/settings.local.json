@@ -77,7 +77,14 @@
       "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"\nSELECT name, \n  context IS NULL AS ctx_null, \n  role IS NULL AS role_null,\n  priorities::text = '[]' AS prio_empty,\n  channel_handles::text = '{}' AS ch_empty,\n  notes IS NOT NULL as has_notes\nFROM people\nWHERE context IS NULL OR role IS NULL OR priorities::text = '[]'\nORDER BY name;\" 2>&1)",
       "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"SELECT name, role IS NULL as no_role, relationship IS NULL as no_rel, context IS NULL as no_ctx FROM people ORDER BY name;\" 2>&1)",
       "Bash(psql postgresql://localhost:5432/oc_operator -t -A -F'|' -c \"SELECT name, email, notes FROM people WHERE name = 'Roman Kucher';\" 2>&1)",
-      "Bash(bash ~/.openclaw/workspace-gateway-835ce717-7e37-45fa-82eb-be06f329eead/dispatch_runner.sh 2>&1)"
+      "Bash(bash ~/.openclaw/workspace-gateway-835ce717-7e37-45fa-82eb-be06f329eead/dispatch_runner.sh 2>&1)",
+      "Bash(psql:*)",
+      "Bash(curl:*)",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_close"
     ]
   }
 }
