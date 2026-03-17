@@ -149,10 +149,10 @@ async function start(): Promise<void> {
     socket.destroy()
   })
 
-  console.log(`[oc-operator] API running on http://localhost:${config.PORT}`)
+  console.log(`[openclaw-operator] API running on http://localhost:${config.PORT}`)
 }
 
 start().catch((err) => {
-  console.error('[oc-operator] startup failed:', err)
+  console.error('[openclaw-operator] startup failed:', err)
   process.exit(1)
 })

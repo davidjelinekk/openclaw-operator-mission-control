@@ -23,7 +23,7 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.7.6
         version: 0.7.6(hono@4.12.6)(zod@3.25.76)
-      '@oc-operator/shared-types':
+      '@openclaw-operator/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
       bullmq:
@@ -51,7 +51,7 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
-      '@oc-operator/tsconfig':
+      '@openclaw-operator/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@types/node':
@@ -133,7 +133,7 @@ importers:
         specifier: ^5.0.3
         version: 5.0.11(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
-      '@oc-operator/tsconfig':
+      '@openclaw-operator/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@tanstack/router-plugin':
@@ -170,7 +170,7 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
-      '@oc-operator/tsconfig':
+      '@openclaw-operator/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       typescript:

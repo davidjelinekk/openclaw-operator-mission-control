@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * One-shot migration script: Mission Control → oc-operator
+ * One-shot migration script: Mission Control → openclaw-operator
  *
  * Clears all migratable oc_operator tables, then bulk-inserts from mission_control.
  * Run from repo root:

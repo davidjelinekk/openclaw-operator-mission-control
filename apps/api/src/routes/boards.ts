@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { db } from '../db/client.js'
 import { boards, tasks, approvals } from '../db/schema.js'
 import { eq, desc, count, lt, ne, asc, and, sql } from 'drizzle-orm'
-import { CreateBoardSchema, UpdateBoardSchema } from '@oc-operator/shared-types'
+import { CreateBoardSchema, UpdateBoardSchema } from '@openclaw-operator/shared-types'
 import { redis } from '../lib/redis.js'
 
 export const boardsRouter = new Hono()

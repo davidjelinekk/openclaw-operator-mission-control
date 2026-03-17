@@ -1,5 +1,5 @@
 {
-  "name": "@oc-operator/shared-types",
+  "name": "@openclaw-operator/shared-types",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/index.js",
@@ -18,7 +18,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@oc-operator/tsconfig": "workspace:*",
+    "@openclaw-operator/tsconfig": "workspace:*",
     "typescript": "^5.8.3"
   }
 }

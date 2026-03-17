@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { db } from '../db/client.js'
 import { people, personThreads, personTasks, personProjects, tasks, projects, boards } from '../db/schema.js'
 import { eq, desc, and, sql } from 'drizzle-orm'
-import { CreatePersonSchema, UpdatePersonSchema, CreatePersonThreadSchema } from '@oc-operator/shared-types'
+import { CreatePersonSchema, UpdatePersonSchema, CreatePersonThreadSchema } from '@openclaw-operator/shared-types'
 
 const router = new Hono()
 

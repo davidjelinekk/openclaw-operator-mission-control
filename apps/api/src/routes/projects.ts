@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { db } from '../db/client.js'
 import { projects, projectTasks, projectTaskDeps, tasks } from '../db/schema.js'
 import { eq, and, desc, asc } from 'drizzle-orm'
-import { CreateProjectSchema, UpdateProjectSchema } from '@oc-operator/shared-types'
+import { CreateProjectSchema, UpdateProjectSchema } from '@openclaw-operator/shared-types'
 import { z } from 'zod'
 import { initProjectWorkspace } from '../lib/projectWorkspace.js'
 

@@ -1,5 +1,5 @@
 {
-  "extends": "@oc-operator/tsconfig/node.json",
+  "extends": "@openclaw-operator/tsconfig/node.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src"

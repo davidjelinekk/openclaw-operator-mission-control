@@ -89,7 +89,7 @@ router.post('/:id/test', async (c) => {
   const body = JSON.stringify({
     event: 'webhook.test',
     timestamp: new Date().toISOString(),
-    payload: { webhookId: webhook.id, message: 'Test ping from oc-operator' },
+    payload: { webhookId: webhook.id, message: 'Test ping from openclaw-operator' },
   })
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }

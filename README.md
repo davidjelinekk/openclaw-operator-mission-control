@@ -1,4 +1,4 @@
-# oc-operator
+# openclaw-operator-mission-control
 
 Autonomous agent work management and governance platform. Kanban boards, task orchestration, agent routing, flow visualization, and cron scheduling — all in one place.
 
