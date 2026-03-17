@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { useAnalyticsSummary, useAnalyticsByAgent } from '@/hooks/api/analytics'
 import { useBoards } from '@/hooks/api/boards'
 import { useInboxQueue, useOverdueTasks, useFailedTasksAnalytics } from '@/hooks/api/tasks'
+import { useAgentNameMap } from '@/hooks/api/agents'
 
 export const Route = createFileRoute('/')({
   component: DashboardPage,
@@ -28,6 +29,7 @@ function DashboardPage() {
   const byAgent = useAnalyticsByAgent(start, end)
   const boards = useBoards()
   const queue = useInboxQueue(undefined, 10)
+  const agentName = useAgentNameMap()
 
   const boardCount = boards.data?.length ?? 0
 
@@ -192,7 +194,7 @@ function DashboardPage() {
                 return (
                   <div key={agent.agentId} className="space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[11px] text-[#e6edf3] truncate">{agent.agentId}</span>
+                      <span className="font-mono text-[11px] text-[#e6edf3] truncate">{agentName(agent.agentId)}</span>
                       <span className="font-mono text-[11px] text-[#58a6ff] flex-shrink-0">${cost.toFixed(4)}</span>
                     </div>
                     <div className="h-1 bg-[#21262d]">

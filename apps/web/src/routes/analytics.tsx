@@ -24,6 +24,7 @@ import {
   useTaskVelocity,
   useTaskOutcomes,
 } from '@/hooks/api/analytics'
+import { useAgentNameMap } from '@/hooks/api/agents'
 
 export const Route = createFileRoute('/analytics')({
   component: AnalyticsPage,
@@ -87,6 +88,7 @@ function AnalyticsPage() {
   const byProject = useAnalyticsByProject(start, end)
   const taskVelocity = useTaskVelocity(start, end)
   const taskOutcomes = useTaskOutcomes(start, end)
+  const agentName = useAgentNameMap()
 
   const agentIds = useMemo(() => {
     const ids = new Set<string>()
@@ -241,12 +243,13 @@ function AnalyticsPage() {
               tickLine={false}
               tickFormatter={(v: number) => `$${v.toFixed(3)}`}
             />
-            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`$${(v as number).toFixed(4)}`, '']} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown, name: string) => [`$${(v as number).toFixed(4)}`, agentName(name)]} />
             {agentIds.map((id, i) => (
               <Area
                 key={id}
                 type="monotone"
                 dataKey={id}
+                name={agentName(id)}
                 stackId="1"
                 stroke={COLORS[i % COLORS.length]}
                 fill={COLORS[i % COLORS.length]}
@@ -287,7 +290,7 @@ function AnalyticsPage() {
             <tbody>
               {sortedAgents.map((a) => (
                 <tr key={a.agentId} className="border-b border-[#21262d] hover:bg-[#21262d]/30">
-                  <td className="py-2 text-[#e6edf3] font-mono text-xs">{a.agentId}</td>
+                  <td className="py-2 text-[#e6edf3] font-mono text-xs">{agentName(a.agentId)}</td>
                   <td className="py-2 text-right font-mono text-[#58a6ff]">${parseFloat(a.totalCostUsd).toFixed(4)}</td>
                   <td className="py-2 text-right font-mono text-[#8b949e]">{formatTokens(a.inputTokens)}</td>
                   <td className="py-2 text-right font-mono text-[#8b949e]">{formatTokens(a.outputTokens)}</td>

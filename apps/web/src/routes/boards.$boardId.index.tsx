@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -371,10 +371,16 @@ function DetailTab({ task, agents, onClose }: { task: Task; agents: ReturnType<t
       <div>
         <label className="block text-xs font-medium uppercase tracking-wider text-[#8b949e] mb-1">Description</label>
         <textarea
+          ref={useCallback((el: HTMLTextAreaElement | null) => {
+            if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }
+          }, [description])}
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          className="w-full bg-[#0d1117] border border-[#30363d] px-3 py-2 text-sm text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] resize-none"
+          onChange={(e) => {
+            setDescription(e.target.value)
+            const el = e.target; el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'
+          }}
+          rows={2}
+          className="w-full bg-[#0d1117] border border-[#30363d] px-3 py-2 text-sm text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] resize-none overflow-hidden"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">

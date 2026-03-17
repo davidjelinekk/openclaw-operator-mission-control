@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useActivity, type ActivityEvent } from '@/hooks/api/activity'
+import { useAgentNameMap } from '@/hooks/api/agents'
+import { useBoards } from '@/hooks/api/boards'
 
 export const Route = createFileRoute('/activity')({
   component: ActivityPage,
@@ -26,7 +28,7 @@ function eventColor(eventType: string): string {
   return '#6e7681'
 }
 
-function EventItem({ event }: { event: ActivityEvent }) {
+function EventItem({ event, agentName, boardName }: { event: ActivityEvent; agentName: (id: string) => string; boardName: (id: string) => string }) {
   const color = eventColor(event.eventType)
   return (
     <div className="flex gap-3 py-3 border-b border-[#21262d]">
@@ -45,7 +47,7 @@ function EventItem({ event }: { event: ActivityEvent }) {
             {event.eventType}
           </span>
           {event.agentId && (
-            <span className="text-[11px] font-mono text-[#6e7681]">{event.agentId}</span>
+            <span className="text-[11px] font-mono text-[#6e7681]">{agentName(event.agentId)}</span>
           )}
           <span className="text-[11px] font-mono text-[#6e7681] ml-auto">{relativeTime(event.createdAt)}</span>
         </div>
@@ -57,7 +59,7 @@ function EventItem({ event }: { event: ActivityEvent }) {
                 href={`/boards/${event.boardId}`}
                 className="text-[11px] font-mono text-[#58a6ff] hover:underline"
               >
-                board
+                {boardName(event.boardId)}
               </a>
             )}
             {event.taskId && event.boardId && (
@@ -89,6 +91,13 @@ const FILTERS: { value: EventFilter; label: string }[] = [
 function ActivityPage() {
   const [filter, setFilter] = useState<EventFilter>('all')
   const { data: events, isLoading } = useActivity()
+  const agentName = useAgentNameMap()
+  const boards = useBoards()
+  const boardName = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const b of boards.data ?? []) map.set(b.id, b.name)
+    return (id: string) => map.get(id) ?? 'board'
+  }, [boards.data])
 
   const filtered = (events ?? []).filter((e) => {
     if (filter === 'all') return true
@@ -130,7 +139,7 @@ function ActivityPage() {
       {!isLoading && filtered.length > 0 && (
         <div className="border border-[#30363d] bg-[#161b22] px-4">
           {filtered.map((event) => (
-            <EventItem key={event.id} event={event} />
+            <EventItem key={event.id} event={event} agentName={agentName} boardName={boardName} />
           ))}
         </div>
       )}

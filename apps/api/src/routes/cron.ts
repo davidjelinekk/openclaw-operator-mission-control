@@ -30,8 +30,8 @@ function normalizeJob(raw: Record<string, unknown>): Record<string, unknown> {
   // state block (gateway runtime data)
   const state = (raw['state'] ?? {}) as Record<string, unknown>
 
-  const lastRunMs = state['lastRunMs'] as number | undefined
-  const nextRunMs = state['nextRunMs'] as number | undefined
+  const lastRunMs = (state['lastRunAtMs'] ?? state['lastRunMs']) as number | undefined
+  const nextRunMs = (state['nextRunAtMs'] ?? state['nextRunMs']) as number | undefined
   const lastRunAt = raw['lastRunAt'] as string | undefined
     ?? (lastRunMs ? new Date(lastRunMs).toISOString() : undefined)
   const nextRunAt = raw['nextRunAt'] as string | undefined

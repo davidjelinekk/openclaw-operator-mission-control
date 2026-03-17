@@ -9,7 +9,7 @@ import {
   type CronJob,
   type CronRun,
 } from '@/hooks/api/cron'
-import { useAgents } from '@/hooks/api/agents'
+import { useAgents, useAgentNameMap } from '@/hooks/api/agents'
 import { AgentChip } from '@/components/atoms/AgentChip'
 
 export const Route = createFileRoute('/cron')({
@@ -101,6 +101,7 @@ function CronRow({ job }: { job: CronJob }) {
   const [expanded, setExpanded] = useState(false)
   const [triggering, setTriggering] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const agentName = useAgentNameMap()
   const trigger = useTriggerCron()
   const deleteCron = useDeleteCron()
 
@@ -130,7 +131,7 @@ function CronRow({ job }: { job: CronJob }) {
         </td>
         <td className="py-3 px-4">
           {job.agentId ? (
-            <AgentChip emoji="🤖" name={job.agentId} />
+            <AgentChip emoji="🤖" name={agentName(job.agentId)} />
           ) : (
             <span className="text-[#6e7681]">—</span>
           )}

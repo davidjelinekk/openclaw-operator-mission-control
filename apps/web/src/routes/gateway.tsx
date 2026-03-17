@@ -78,10 +78,16 @@ function GatewayPage() {
                 <div className="flex flex-col gap-1.5">
                   {Object.entries(status.health as Record<string, unknown>).map(([k, v]) => (
                     <div key={k} className="flex items-start justify-between gap-2">
-                      <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest flex-shrink-0">{k}</span>
-                      <span className="font-mono text-xs text-[#8b949e] truncate max-w-[200px] text-right">
-                        {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                      </span>
+                      <span className="font-mono text-[10px] text-[#6e7681] uppercase tracking-widest flex-shrink-0 pt-0.5">{k}</span>
+                      {typeof v === 'object' ? (
+                        <pre className="font-mono text-xs text-[#8b949e] text-right whitespace-pre-wrap break-all max-w-[300px]">
+                          {JSON.stringify(v, null, 2)}
+                        </pre>
+                      ) : (
+                        <span className="font-mono text-xs text-[#8b949e] text-right break-all max-w-[300px]">
+                          {String(v)}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>

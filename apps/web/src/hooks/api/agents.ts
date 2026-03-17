@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { api, queryClient } from '@/lib/api'
 
 export interface Agent {
@@ -27,6 +28,18 @@ export function useCreateAgent() {
       api.post('api/agents', { json: data }).json<Agent>(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['agents'] }),
   })
+}
+
+/** Maps agent IDs to display names. Falls back to the ID itself if unknown. */
+export function useAgentNameMap() {
+  const { data: agents } = useAgents()
+  return useMemo(() => {
+    const map = new Map<string, string>()
+    for (const a of agents ?? []) {
+      map.set(a.id, a.name)
+    }
+    return (id: string) => map.get(id) ?? id
+  }, [agents])
 }
 
 export function useDeleteAgent() {

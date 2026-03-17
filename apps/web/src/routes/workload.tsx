@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { useTasksInProgress, useInboxQueue, useCancelTask } from '@/hooks/api/tasks'
 import type { Task } from '@/hooks/api/boards'
 import { useBoards } from '@/hooks/api/boards'
+import { useAgentNameMap } from '@/hooks/api/agents'
 
 export const Route = createFileRoute('/workload')({
   component: WorkloadPage,
@@ -40,6 +41,7 @@ function WorkloadPage() {
   const queue = useInboxQueue(undefined, 25)
   const boards = useBoards()
   const cancelTask = useCancelTask()
+  const agentName = useAgentNameMap()
 
   const boardsById = useMemo(() => {
     const map = new Map<string, string>()
@@ -98,7 +100,7 @@ function WorkloadPage() {
                 <div key={agentId} className="border border-[#30363d] bg-[#161b22] p-4 flex flex-col gap-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-[#e6edf3] truncate">
-                      {agentId === '__unassigned__' ? 'Unassigned' : agentId}
+                      {agentId === '__unassigned__' ? 'Unassigned' : agentName(agentId)}
                     </span>
                     <span className={`font-mono text-[10px] px-1.5 py-0.5 flex-shrink-0 border ${
                       tasks.length > 6
@@ -115,7 +117,7 @@ function WorkloadPage() {
                       <li key={task.id} className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <PriorityBadge priority={task.priority} />
-                          <span className="font-mono text-xs text-[#c9d1d9] truncate">{task.title}</span>
+                          <span className="font-mono text-xs text-[#c9d1d9] truncate" title={task.title}>{task.title}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <span className={`font-mono text-[10px] ${
@@ -162,7 +164,7 @@ function WorkloadPage() {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <PriorityBadge priority={task.priority} />
-                      <span className="font-mono text-xs text-[#c9d1d9] truncate">{task.title}</span>
+                      <span className="font-mono text-xs text-[#c9d1d9] truncate" title={task.title}>{task.title}</span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       {task.boardId && (
