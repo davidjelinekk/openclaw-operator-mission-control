@@ -110,7 +110,7 @@ function AgentsPage() {
         <div className="flex items-center gap-3">
           {!isLoading && agents && (
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#3fb950]" />
+              <span className={`w-2 h-2 rounded-full ${online > 0 ? 'bg-[#3fb950]' : 'bg-[#6e7681]'}`} />
               <span className="font-mono text-xs text-[#8b949e]">
                 {online}/{total} online
               </span>

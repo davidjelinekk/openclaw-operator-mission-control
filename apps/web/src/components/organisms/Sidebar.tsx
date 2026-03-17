@@ -49,7 +49,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'boards',    to: '/boards',       icon: LayoutDashboard },
       { label: 'activity',  to: '/activity',    icon: Activity },
-      { label: 'groups',    to: '/board-groups', icon: Layers },
       { label: 'people',    to: '/people',       icon: Users },
       { label: 'projects',  to: '/projects',     icon: FolderKanban },
     ],

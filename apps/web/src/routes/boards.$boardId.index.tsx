@@ -507,7 +507,7 @@ function DetailTab({ task, agents, onClose }: { task: Task; agents: ReturnType<t
               onClick={() => setShowCancelConfirm(true)}
               className="px-2.5 py-1 font-mono text-[11px] text-[#f85149] border border-[#da3633]/50 hover:bg-[#da3633]/10 transition-colors"
             >
-              cancel task
+              Cancel task
             </button>
           )}
         </div>

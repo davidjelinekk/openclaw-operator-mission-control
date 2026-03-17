@@ -51,6 +51,11 @@ router.get('/me', async (c) => {
     return c.json({ error: 'Unauthorized' }, 401)
   }
   const token = authHeader.slice(7)
+  // Session IDs are UUIDs — reject non-UUID tokens early to avoid DB errors
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!UUID_RE.test(token)) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
   const user = await getSessionUser(token)
   if (!user) {
     return c.json({ error: 'Unauthorized' }, 401)

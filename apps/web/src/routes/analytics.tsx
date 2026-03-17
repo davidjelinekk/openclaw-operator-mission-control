@@ -209,7 +209,7 @@ function AnalyticsPage() {
           {summary.data?.mostExpensiveAgent ? (
             <>
               <p className="text-lg font-semibold text-[#e6edf3] truncate">{summary.data.mostExpensiveAgent.name}</p>
-              <p className="text-sm text-[#8b949e] font-mono">${parseFloat(summary.data.mostExpensiveAgent.costUsd).toFixed(4)}</p>
+              <p className="text-sm text-[#8b949e] font-mono">${parseFloat(summary.data.mostExpensiveAgent.totalCostUsd).toFixed(4)}</p>
             </>
           ) : (
             <p className="text-lg text-[#6e7681]">—</p>

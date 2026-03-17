@@ -6,7 +6,7 @@ export interface AnalyticsSummary {
   cacheHitPct: number
   totalInputTokens: number
   totalOutputTokens: number
-  mostExpensiveAgent: { agentId: string; name: string; costUsd: string } | null
+  mostExpensiveAgent: { agentId: string; name: string; totalCostUsd: string } | null
 }
 
 export interface AnalyticsTimeseriesItem {

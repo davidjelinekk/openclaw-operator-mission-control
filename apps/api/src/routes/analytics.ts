@@ -23,8 +23,9 @@ analyticsRouter.get('/summary', async (c) => {
     turnCount: sql<number>`COUNT(*)::int`,
   }).from(tokenEvents).where(where)
 
-  const cacheHitPct = result.totalInputTokens > 0
-    ? (result.totalCacheReadTokens / result.totalInputTokens) * 100
+  const totalPromptTokens = result.totalInputTokens + result.totalCacheReadTokens + result.totalCacheWriteTokens
+  const cacheHitPct = totalPromptTokens > 0
+    ? (result.totalCacheReadTokens / totalPromptTokens) * 100
     : 0
 
   let mostExpensiveAgent: { agentId: string; name: string; totalCostUsd: string } | null = null
