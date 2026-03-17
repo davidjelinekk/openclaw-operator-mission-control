@@ -1,6 +1,6 @@
 # openclaw-operator-mission-control
 
-Autonomous agent work management and governance platform. Kanban boards, task orchestration, agent routing, flow visualization, and cron scheduling — all in one place.
+Mission Control for [OpenClaw](https://openclaw.ai/) — the autonomous agent work management and governance platform. Kanban boards, task orchestration, agent routing, flow visualization, and cron scheduling — all in one place.
 
 ## Tech Stack
 
@@ -11,6 +11,7 @@ Autonomous agent work management and governance platform. Kanban boards, task or
 
 ## Prerequisites
 
+- [OpenClaw](https://openclaw.ai/) installed and configured (`~/.openclaw`)
 - Node.js 22+
 - pnpm 10+
 - PostgreSQL
@@ -45,6 +46,10 @@ packages/
   shared-types/ # Zod schemas shared between API and web
   tsconfig/     # Shared TypeScript configs
 ```
+
+## Related
+
+- [OpenClaw](https://openclaw.ai/) — the agent runtime this operator manages
 
 ## License
 
