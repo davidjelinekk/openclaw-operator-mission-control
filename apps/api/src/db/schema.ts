@@ -60,8 +60,8 @@ export const projects = pgTable('projects', {
 export const projectTasks = pgTable(
   'project_tasks',
   {
-    projectId: uuid('project_id').notNull(),
-    taskId: uuid('task_id').notNull(),
+    projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
     position: integer('position').notNull().default(0),
     executionMode: text('execution_mode').notNull().default('sequential'),
   },
@@ -187,7 +187,7 @@ export const skillSnapshots = pgTable('skill_snapshots', {
   displayName: text('display_name').notNull(),
   description: text('description'),
   skillType: text('skill_type').notNull().default('skill'),
-  isInstalled: text('is_installed').notNull().default('true'),
+  isInstalled: boolean('is_installed').notNull().default(true),
   configJson: jsonb('config_json'),
   requiredEnv: jsonb('required_env').notNull().default([]),
   dependencies: jsonb('dependencies').notNull().default([]),
@@ -219,8 +219,8 @@ export const people = pgTable('people', {
   priorities: jsonb('priorities').$type<string[]>().default([]),
   context: text('context'),
   channelHandles: jsonb('channel_handles').$type<Record<string, string>>().default({}),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('people_source_idx').on(t.source),
   index('people_email_idx').on(t.email),
@@ -233,8 +233,8 @@ export const personThreads = pgTable('person_threads', {
   channel: text('channel').notNull(), // 'telegram' | 'teams' | 'email' | 'other'
   threadId: text('thread_id'),
   summary: text('summary'),
-  lastMessageAt: timestamp('last_message_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
+  lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const personTasks = pgTable('person_tasks', {

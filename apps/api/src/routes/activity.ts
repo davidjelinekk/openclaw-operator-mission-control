@@ -100,7 +100,7 @@ router.get('/stream', async (c) => {
           clearInterval(pollInterval)
           clearInterval(pingInterval)
           clearInterval(abortCheck)
-          try { controller.close() } catch {}
+          try { controller.close() } catch { /* already closed */ }
         }
       }, 1000)
     },

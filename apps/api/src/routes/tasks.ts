@@ -329,6 +329,7 @@ tasksRouter.delete('/:id', async (c) => {
   if (!task) return c.json({ error: 'Not found' }, 404)
   await db.delete(tasks).where(eq(tasks.id, id))
   await redis.publish(`board:${task.boardId}`, JSON.stringify({ type: 'task.deleted', taskId: id }))
+  dispatchWebhookEvent({ type: 'task.deleted', boardId: task.boardId, payload: { id } })
   return c.json({ ok: true })
 })
 
@@ -349,6 +350,7 @@ tasksRouter.post('/:id/deps', zValidator('json', z.object({ dependsOnTaskId: z.s
   const visited = new Set<string>()
   const queue = [dependsOnTaskId]
   while (queue.length > 0) {
+    if (visited.size > 200) return c.json({ error: 'Dependency chain too deep' }, 400)
     const current = queue.pop()!
     if (current === taskId) return c.json({ error: 'Circular dependency detected' }, 409)
     if (visited.has(current)) continue

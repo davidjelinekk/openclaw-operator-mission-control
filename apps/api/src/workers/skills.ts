@@ -9,7 +9,7 @@ interface SkillEntry {
   displayName: string
   description: string | null
   skillType: string
-  isInstalled: string
+  isInstalled: boolean
   configJson: unknown
   requiredEnv: string[]
   dependencies: string[]
@@ -31,7 +31,8 @@ async function runRefresh(): Promise<void> {
   let skillDirs: string[] = []
   try {
     skillDirs = readdirSync(skillsDir)
-  } catch {
+  } catch (e) {
+    console.error('[skills] failed to read skills dir:', e)
     return
   }
 
@@ -58,8 +59,8 @@ async function runRefresh(): Promise<void> {
     if (existsSync(manifestPath)) {
       try {
         configJson = JSON.parse(readFileSync(manifestPath, 'utf-8'))
-      } catch {
-        // ignore
+      } catch (e) {
+        console.error(`[skills] failed to parse manifest for ${skillId}:`, e)
       }
     }
 
@@ -68,7 +69,7 @@ async function runRefresh(): Promise<void> {
       displayName,
       description,
       skillType: 'skill',
-      isInstalled: 'true',
+      isInstalled: true,
       configJson,
       requiredEnv,
       dependencies: [],
@@ -85,14 +86,14 @@ async function runRefresh(): Promise<void> {
         displayName: serverId,
         description: `MCP Server: ${serverId}`,
         skillType: 'mcp_server',
-        isInstalled: 'true',
+        isInstalled: true,
         configJson: serverConfig,
         requiredEnv: [],
         dependencies: [],
       })
     }
-  } catch {
-    // ignore
+  } catch (e) {
+    console.error('[skills] failed to read openclaw.json MCP servers:', e)
   }
 
   for (const entry of entries) {

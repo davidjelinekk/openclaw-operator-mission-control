@@ -17,6 +17,8 @@ export const TaskSchema = z.object({
   assignedAgentId: z.string().nullable(),
   dueAt: z.string().datetime().nullable(),
   inProgressAt: z.string().datetime().nullable(),
+  outcome: z.enum(['success', 'failed', 'partial', 'abandoned']).nullable().optional(),
+  completedAt: z.string().datetime().nullable().optional(),
   autoCreated: z.boolean(),
   autoReason: z.string().nullable(),
   createdAt: z.string().datetime(),

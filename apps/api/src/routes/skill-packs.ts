@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { db } from '../db/client.js'
 import { skillPacks, skillSnapshots } from '../db/schema.js'
 import { eq, desc } from 'drizzle-orm'
+import { slugify } from '../lib/slugify.js'
 
 const router = new Hono()
 
@@ -16,10 +17,6 @@ const CreatePackSchema = z.object({
 })
 
 const UpdatePackSchema = CreatePackSchema.partial()
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-}
 
 router.get('/', async (c) => {
   const result = await db.select().from(skillPacks).orderBy(desc(skillPacks.createdAt))
@@ -76,7 +73,7 @@ router.post('/:id/install', async (c) => {
           skillId,
           displayName: skillId,
           skillType: 'skill',
-          isInstalled: 'true',
+          isInstalled: true,
         })
         .onConflictDoNothing()
       count++
@@ -89,7 +86,7 @@ router.post('/:id/install', async (c) => {
           skillId: serverId,
           displayName: serverId,
           skillType: 'mcp_server',
-          isInstalled: 'true',
+          isInstalled: true,
           configJson: serverConfig,
         })
         .onConflictDoNothing()

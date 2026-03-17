@@ -99,7 +99,8 @@ async function runIngest(): Promise<void> {
   let agentDirs: string[] = []
   try {
     agentDirs = readdirSync(agentsDir)
-  } catch {
+  } catch (e) {
+    console.error('[analytics] failed to read agents dir:', e)
     return
   }
 
@@ -113,7 +114,8 @@ async function runIngest(): Promise<void> {
         !f.includes('.archived.') &&
         !f.includes('.reset.')
       )
-    } catch {
+    } catch (e) {
+      console.error(`[analytics] failed to read sessions for ${agentId}:`, e)
       continue
     }
 
@@ -123,8 +125,8 @@ async function runIngest(): Promise<void> {
       try {
         const n = await processFile(agentId, sessionId, filePath)
         totalInserted += n
-      } catch {
-        // skip problematic files
+      } catch (e) {
+        console.error(`[analytics] failed to process ${agentId}/${file}:`, e)
       }
     }
   }

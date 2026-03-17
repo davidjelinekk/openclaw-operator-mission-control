@@ -4,12 +4,9 @@ import { z } from 'zod'
 import { db } from '../db/client.js'
 import { taskTemplates, tasks, tags, taskTags } from '../db/schema.js'
 import { eq, desc, inArray } from 'drizzle-orm'
+import { slugify } from '../lib/slugify.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-}
 
 const TemplateBodySchema = z.object({
   title: z.string().min(1),

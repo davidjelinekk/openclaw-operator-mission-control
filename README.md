@@ -1,3 +1,17 @@
+```
+   ____                        __
+  / __ \____  ___  _________ _/ /_____  _____
+ / / / / __ \/ _ \/ ___/ __ `/ __/ __ \/ ___/
+/ /_/ / /_/ /  __/ /  / /_/ / /_/ /_/ / /
+\____/ .___/\___/_/   \__,_/\__/\____/_/
+    /_/
+    __  ____         _               ______            __             __
+   /  |/  (_)_______(_)___  ____    / ____/___  ____  / /__________  / /
+  / /|_/ / / ___/ ___/ / _ \/ __ \  / /   / __ \/ __ \/ __/ ___/ __ \/ /
+ / /  / / (__  |__  ) / /_/ / / / / / /___/ /_/ / / / / /_/ /  / /_/ / /
+/_/  /_/_/____/____/_/\____/_/ /_/  \____/\____/_/ /_/\__/_/   \____/_/
+```
+
 # openclaw-operator-mission-control
 
 Mission Control for [OpenClaw](https://openclaw.ai/) — a web-based operations dashboard for managing autonomous AI agent workloads. Coordinate multiple agents across Kanban boards, track task lifecycles with configurable approval workflows, visualize agent-to-agent communication in real time, and monitor token costs across your entire fleet.
@@ -87,7 +101,7 @@ apps/
   api/                # Hono REST API + WebSocket server
     src/
       routes/         # 24 route modules (boards, tasks, agents, flow, ...)
-      db/schema/      # Drizzle ORM schema (7 domain modules)
+      db/schema.ts    # Drizzle ORM schema (all tables)
       db/migrations/  # SQL migrations
       workers/        # Background jobs (analytics, skills, flow)
       services/       # Gateway client, device identity

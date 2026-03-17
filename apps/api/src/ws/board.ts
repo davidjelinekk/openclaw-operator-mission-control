@@ -36,7 +36,7 @@ export function createBoardWsHandler(): WebSocketServer {
     // Send initial snapshot
     const [board] = await db.select().from(boards).where(eq(boards.id, boardId))
     const boardTasks = board ? await db.select().from(tasks).where(eq(tasks.boardId, boardId)) : []
-    ws.send(JSON.stringify({ type: 'snapshot', board, tasks: boardTasks }))
+    if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'snapshot', board, tasks: boardTasks }))
 
     const ping = setInterval(() => {
       if (ws.readyState === 1) ws.ping()

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { db } from '../db/client.js'
 import { boardGroups, boards } from '../db/schema.js'
 import { eq, desc, sql } from 'drizzle-orm'
+import { slugify } from '../lib/slugify.js'
 
 const router = new Hono()
 
@@ -13,10 +14,6 @@ const CreateGroupSchema = z.object({
 })
 
 const UpdateGroupSchema = CreateGroupSchema.partial()
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-}
 
 router.get('/', async (c) => {
   const rows = await db

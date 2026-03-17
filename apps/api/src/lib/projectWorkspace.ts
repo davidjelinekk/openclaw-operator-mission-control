@@ -4,12 +4,9 @@ import { join } from 'node:path'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { config } from '../config.js'
+import { slugify } from './slugify.js'
 
 const execAsync = promisify(exec)
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
-}
 
 export async function initProjectWorkspace(project: {
   id: string
@@ -17,7 +14,7 @@ export async function initProjectWorkspace(project: {
   description?: string | null
 }): Promise<string> {
   const base = join(config.OPENCLAW_HOME, 'workspaces', 'projects')
-  const slug = slugify(project.name)
+  const slug = slugify(project.name).slice(0, 60)
   let dirPath = join(base, slug)
 
   if (existsSync(dirPath)) {

@@ -25,7 +25,7 @@ async function streamApprovals(
     buffer = lines.pop() ?? ''
     for (const line of lines) {
       if (line.startsWith('data: ')) {
-        try { onMessage(JSON.parse(line.slice(6))) } catch {}
+        try { onMessage(JSON.parse(line.slice(6))) } catch { /* malformed SSE frame */ }
       }
     }
   }

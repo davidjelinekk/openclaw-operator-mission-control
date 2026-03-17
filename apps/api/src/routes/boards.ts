@@ -5,6 +5,7 @@ import { boards, tasks, approvals } from '../db/schema.js'
 import { eq, desc, count, lt, ne, asc, and, sql } from 'drizzle-orm'
 import { CreateBoardSchema, UpdateBoardSchema } from '@openclaw-operator/shared-types'
 import { redis } from '../lib/redis.js'
+import { slugify } from '../lib/slugify.js'
 
 export const boardsRouter = new Hono()
 
@@ -15,7 +16,7 @@ boardsRouter.get('/', async (c) => {
 
 boardsRouter.post('/', zValidator('json', CreateBoardSchema), async (c) => {
   const { targetDate, ...rest } = c.req.valid('json')
-  const slug = rest.slug ?? rest.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const slug = rest.slug ?? slugify(rest.name)
   const values = {
     ...rest,
     slug,
@@ -47,6 +48,12 @@ boardsRouter.patch('/:id', zValidator('json', UpdateBoardSchema), async (c) => {
 
 boardsRouter.delete('/:id', async (c) => {
   const id = c.req.param('id')
+  const [board] = await db.select().from(boards).where(eq(boards.id, id))
+  if (!board) return c.json({ error: 'Not found' }, 404)
+
+  const [{ total }] = await db.select({ total: count() }).from(tasks).where(eq(tasks.boardId, id))
+  if (total > 0) return c.json({ error: `Board still has ${total} task(s). Delete or reassign them first.` }, 409)
+
   await db.delete(boards).where(eq(boards.id, id))
   return c.json({ ok: true })
 })

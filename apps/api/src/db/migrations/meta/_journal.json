@@ -43,6 +43,13 @@
       "when": 1741780800000,
       "tag": "0005_task_outcome",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773759697299,
+      "tag": "0006_perpetual_marten_broadcloak",
+      "breakpoints": true
     }
   ]
 }

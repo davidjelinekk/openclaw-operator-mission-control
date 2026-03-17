@@ -1450,7 +1450,7 @@ function BoardDetailPage() {
           const body = await httpErr.response.json()
           if (body.error) msg = body.error
         }
-      } catch {}
+      } catch { /* response not parseable — use generic message */ }
       setDragError(msg)
     }
   }

@@ -243,7 +243,7 @@ function AnalyticsPage() {
               tickLine={false}
               tickFormatter={(v: number) => `$${v.toFixed(3)}`}
             />
-            <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown, name: string) => [`$${(v as number).toFixed(4)}`, agentName(name)]} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown, name?: string | number) => [`$${(v as number).toFixed(4)}`, agentName(String(name ?? ''))]} />
             {agentIds.map((id, i) => (
               <Area
                 key={id}

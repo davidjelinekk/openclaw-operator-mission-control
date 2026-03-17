@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { db } from '../db/client.js'
 import { tags, taskTags } from '../db/schema.js'
 import { eq, and, desc } from 'drizzle-orm'
+import { slugify } from '../lib/slugify.js'
 
 const router = new Hono()
 
@@ -14,10 +15,6 @@ const CreateTagSchema = z.object({
 })
 
 const UpdateTagSchema = CreateTagSchema.partial()
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-}
 
 router.get('/', async (c) => {
   const result = await db.select().from(tags).orderBy(desc(tags.createdAt))
